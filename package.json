@@ -4,7 +4,8 @@
   "private": true,
   "description": "Yet Another Retro Tool - Real-time retrospective facilitation",
   "scripts": {
-    "dev": "pnpm --filter frontend dev",
+    "dev": "concurrently -n worker,frontend -c blue,green \"pnpm dev:worker\" \"pnpm dev:frontend\"",
+    "dev:frontend": "pnpm --filter frontend dev",
     "dev:worker": "pnpm --filter worker dev",
     "build": "pnpm --filter frontend build",
     "test": "pnpm --filter frontend test",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.7",
