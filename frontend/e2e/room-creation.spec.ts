@@ -103,14 +103,14 @@ test.describe("Room Creation Flow", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("room header shows room ID with copy button", async ({ page }) => {
+  test("room header shows share room button", async ({ page }) => {
     await page.goto("/");
 
     // Switch to Create tab
     await page.getByRole("button", { name: "Create Room" }).first().click();
 
     // Create room
-    await page.getByLabel("Room Name").fill("Copy ID Test");
+    await page.getByLabel("Room Name").fill("Share Test");
     await page
       .locator("form")
       .getByRole("button", { name: "Create Room" })
@@ -119,9 +119,9 @@ test.describe("Room Creation Flow", () => {
     // Wait for room page
     await expect(page).toHaveURL(/\/room\//);
 
-    // Should see the room ID copy button
-    const copyButton = page.locator(".room-id-copy-btn");
-    await expect(copyButton).toBeVisible();
-    await expect(copyButton).toContainText("ID:");
+    // Should see the share room button
+    const shareButton = page.locator(".share-room-btn");
+    await expect(shareButton).toBeVisible();
+    await expect(shareButton).toContainText("Share room");
   });
 });
