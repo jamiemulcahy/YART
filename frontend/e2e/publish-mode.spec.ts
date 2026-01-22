@@ -241,4 +241,63 @@ test.describe("Publish Mode", () => {
     await expect(page.locator(".card-item").getByText("Card 1")).toBeVisible();
     await expect(page.locator(".card-item").getByText("Card 2")).toBeVisible();
   });
+
+  test("user can edit draft card before publishing", async ({ page }) => {
+    await createRoomAsOwner(page, "Edit Draft Test");
+    await addColumn(page, "Edit Column");
+    await transitionToPublish(page);
+
+    // Create a draft card
+    const draftInput = page.getByPlaceholder("Add a new card...").first();
+    await draftInput.fill("Original text");
+    await page.getByRole("button", { name: "Add Draft" }).first().click();
+
+    // Verify draft appears
+    await expect(page.getByText("Original text").first()).toBeVisible();
+
+    // Edit the draft card (find textarea in draft-card-item)
+    const draftTextarea = page
+      .locator(".draft-card-item")
+      .getByPlaceholder("Edit your card...")
+      .first();
+    await draftTextarea.fill("Updated text");
+    // Blur to save the changes
+    await draftTextarea.blur();
+
+    // Verify the edited text appears
+    await expect(
+      page.locator(".draft-card-item").getByPlaceholder("Edit your card...")
+    ).toHaveValue("Updated text");
+
+    // Publish and verify the updated text is visible
+    await page
+      .locator(".draft-card-item")
+      .getByRole("button", { name: "Publish" })
+      .first()
+      .click();
+
+    // The published card should show the updated text
+    await expect(
+      page.locator(".card-item").getByText("Updated text")
+    ).toBeVisible();
+  });
+
+  test("cards show author indicator", async ({ page }) => {
+    await createRoomAsOwner(page, "Author Indicator Test");
+    await addColumn(page, "Author Column");
+    await transitionToPublish(page);
+
+    // Create and publish a card
+    const draftInput = page.getByPlaceholder("Add a new card...").first();
+    await draftInput.fill("Test card content");
+    await page.getByRole("button", { name: "Add Draft" }).first().click();
+    await page
+      .locator(".draft-card-item")
+      .getByRole("button", { name: "Publish" })
+      .first()
+      .click();
+
+    // The card should show "You" as the author for own cards
+    await expect(page.locator(".card-author").getByText("You")).toBeVisible();
+  });
 });
