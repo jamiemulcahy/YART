@@ -157,4 +157,88 @@ test.describe("Publish Mode", () => {
       page.getByRole("heading", { name: "Actions" }).first()
     ).toBeVisible();
   });
+
+  test("published card persists over time", async ({ page }) => {
+    // Collect console logs
+    const consoleLogs: string[] = [];
+    page.on("console", (msg) => {
+      consoleLogs.push(msg.text());
+    });
+
+    await createRoomAsOwner(page, "Card Persistence Test");
+    await addColumn(page, "Test Column");
+    await transitionToPublish(page);
+
+    // Create and publish a card
+    const draftInput = page.getByPlaceholder("Add a new card...").first();
+    await draftInput.fill("Persistent card content");
+    await page.getByRole("button", { name: "Add Draft" }).first().click();
+
+    const publishButton = page
+      .locator(".draft-card-item")
+      .getByRole("button", { name: "Publish" })
+      .first();
+    await publishButton.click();
+
+    // Card should be visible immediately
+    await expect(
+      page.locator(".card-item").getByText("Persistent card content").first()
+    ).toBeVisible();
+
+    // Wait and check multiple times
+    for (let i = 0; i < 5; i++) {
+      await page.waitForTimeout(500);
+      const cardVisible = await page
+        .locator(".card-item")
+        .getByText("Persistent card content")
+        .isVisible();
+      if (!cardVisible) {
+        console.log("Card disappeared! Console logs:", consoleLogs.join("\n"));
+        throw new Error(`Card disappeared after ${(i + 1) * 500}ms`);
+      }
+    }
+
+    // Card should still be there
+    await expect(
+      page.locator(".card-item").getByText("Persistent card content")
+    ).toBeVisible();
+  });
+
+  test("card count in column updates correctly", async ({ page }) => {
+    await createRoomAsOwner(page, "Card Count Test");
+    await addColumn(page, "Count Column");
+    await transitionToPublish(page);
+
+    // Initially 0 cards
+    await expect(page.getByText("0 cards")).toBeVisible();
+
+    // Publish first card
+    const draftInput = page.getByPlaceholder("Add a new card...").first();
+    await draftInput.fill("Card 1");
+    await page.getByRole("button", { name: "Add Draft" }).first().click();
+    await page
+      .locator(".draft-card-item")
+      .getByRole("button", { name: "Publish" })
+      .first()
+      .click();
+
+    // Should show 1 card
+    await expect(page.getByText("1 card")).toBeVisible();
+
+    // Publish second card
+    await draftInput.fill("Card 2");
+    await page.getByRole("button", { name: "Add Draft" }).first().click();
+    await page
+      .locator(".draft-card-item")
+      .getByRole("button", { name: "Publish" })
+      .first()
+      .click();
+
+    // Should show 2 cards
+    await expect(page.getByText("2 cards")).toBeVisible();
+
+    // Both cards should be visible
+    await expect(page.locator(".card-item").getByText("Card 1")).toBeVisible();
+    await expect(page.locator(".card-item").getByText("Card 2")).toBeVisible();
+  });
 });
