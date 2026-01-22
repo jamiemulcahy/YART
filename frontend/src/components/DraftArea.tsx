@@ -87,9 +87,29 @@ export function DraftArea({ columnId }: DraftAreaProps) {
     }
   };
 
+  const handlePublishAll = () => {
+    drafts.forEach((draft) => {
+      if (draft.content.trim()) {
+        publishCard(draft.columnId, draft.content);
+        deleteDraftCard(draft.id);
+      }
+    });
+  };
+
   return (
     <div className="draft-area">
-      <div className="draft-area-header">Your Drafts</div>
+      <div className="draft-area-header">
+        <span>Your Drafts</span>
+        {drafts.length > 0 && (
+          <button
+            className="publish-all-btn"
+            onClick={handlePublishAll}
+            title="Publish all drafts"
+          >
+            Publish All ({drafts.length})
+          </button>
+        )}
+      </div>
 
       {drafts.length > 0 && (
         <div className="draft-cards-list">

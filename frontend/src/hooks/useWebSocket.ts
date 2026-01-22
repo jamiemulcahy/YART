@@ -37,7 +37,17 @@ export function useWebSocket(
   const shouldReconnect = useRef(true);
 
   const connect = useCallback(() => {
-    if (!roomId || wsRef.current?.readyState === WebSocket.OPEN) {
+    if (!roomId) {
+      return;
+    }
+
+    // Check if there's already an open or connecting WebSocket
+    const currentWs = wsRef.current;
+    if (
+      currentWs &&
+      (currentWs.readyState === WebSocket.OPEN ||
+        currentWs.readyState === WebSocket.CONNECTING)
+    ) {
       return;
     }
 

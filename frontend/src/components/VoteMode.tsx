@@ -76,7 +76,6 @@ function SwipeCard({ card, columnName, onVote }: SwipeCardProps) {
 export function VoteMode() {
   const { room, cards, vote } = useRoom();
   const { votedCardIds, addVotedCard } = useUser();
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   if (!room) return null;
 
@@ -90,16 +89,15 @@ export function VoteMode() {
   };
 
   const handleVote = (voteValue: boolean) => {
-    const card = unvotedCards[currentIndex];
+    const card = unvotedCards[0];
     if (!card) return;
 
     vote(card.id, voteValue);
     addVotedCard(card.id);
-    setCurrentIndex((prev) => prev + 1);
   };
 
   // All cards voted
-  if (unvotedCards.length === 0 || currentIndex >= unvotedCards.length) {
+  if (unvotedCards.length === 0) {
     return (
       <div className="vote-mode">
         <div className="vote-complete">
@@ -114,7 +112,7 @@ export function VoteMode() {
     );
   }
 
-  const currentCard = unvotedCards[currentIndex];
+  const currentCard = unvotedCards[0];
   const progress = votedCardIds.length;
   const total = cards.length;
 

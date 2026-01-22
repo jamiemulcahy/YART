@@ -1,33 +1,22 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Room Creation Flow", () => {
-  test("can create a room and see owner key modal", async ({ page }) => {
+  test("can create a room and navigate directly to it", async ({ page }) => {
     await page.goto("/");
+
+    // Switch to Create tab
+    await page.getByRole("button", { name: "Create Room" }).first().click();
 
     // Fill in room name
     await page.getByLabel("Room Name").fill("Test Retrospective");
 
     // Click create button
-    await page.getByRole("button", { name: "Create Room" }).click();
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Create Room" })
+      .click();
 
-    // Owner key modal should be visible
-    await expect(page.getByText("Room Created Successfully!")).toBeVisible();
-    await expect(page.getByText("Your room has been created")).toBeVisible();
-
-    // Should show room ID and owner key labels in modal
-    await expect(
-      page.getByText("Room ID (share with participants)")
-    ).toBeVisible();
-    await expect(page.getByText("Owner Key (keep this secret!)")).toBeVisible();
-
-    // Should show copy buttons
-    const copyButtons = page.getByRole("button", { name: "Copy" });
-    await expect(copyButtons.first()).toBeVisible();
-
-    // Click "Enter Room" to navigate
-    await page.getByRole("button", { name: "Enter Room" }).click();
-
-    // Should navigate to room page
+    // Should navigate directly to room page (no modal shown)
     await expect(page).toHaveURL(/\/room\//);
 
     // Should see room header with room name
@@ -37,13 +26,15 @@ test.describe("Room Creation Flow", () => {
   test("room creator is shown as owner in edit mode", async ({ page }) => {
     await page.goto("/");
 
+    // Switch to Create tab
+    await page.getByRole("button", { name: "Create Room" }).first().click();
+
     // Create room
     await page.getByLabel("Room Name").fill("Owner Test Room");
-    await page.getByRole("button", { name: "Create Room" }).click();
-
-    // Wait for modal and click Enter Room
-    await expect(page.getByText("Room Created Successfully!")).toBeVisible();
-    await page.getByRole("button", { name: "Enter Room" }).click();
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Create Room" })
+      .click();
 
     // Wait for room page
     await expect(page).toHaveURL(/\/room\//);
@@ -62,13 +53,17 @@ test.describe("Room Creation Flow", () => {
   test("can create room and add columns", async ({ page }) => {
     await page.goto("/");
 
+    // Switch to Create tab
+    await page.getByRole("button", { name: "Create Room" }).first().click();
+
     // Create room
     await page.getByLabel("Room Name").fill("Column Test Room");
-    await page.getByRole("button", { name: "Create Room" }).click();
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Create Room" })
+      .click();
 
-    // Wait for modal and enter room
-    await expect(page.getByText("Room Created Successfully!")).toBeVisible();
-    await page.getByRole("button", { name: "Enter Room" }).click();
+    // Wait for room page
     await expect(page).toHaveURL(/\/room\//);
 
     // Wait for the edit mode to load
@@ -92,16 +87,41 @@ test.describe("Room Creation Flow", () => {
   test("join room with invalid ID shows error", async ({ page }) => {
     await page.goto("/");
 
-    // Enter invalid room ID
+    // Enter invalid room ID (Join tab is active by default)
     await page.getByLabel("Room ID").fill("invalid-room-id-12345");
 
     // Click join button
-    await page.getByRole("button", { name: "Join Room" }).click();
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Join Room" })
+      .click();
 
     // Should show error message
     await expect(page.getByText(/room not found/i)).toBeVisible();
 
     // Should still be on landing page
     await expect(page).toHaveURL("/");
+  });
+
+  test("room header shows room ID with copy button", async ({ page }) => {
+    await page.goto("/");
+
+    // Switch to Create tab
+    await page.getByRole("button", { name: "Create Room" }).first().click();
+
+    // Create room
+    await page.getByLabel("Room Name").fill("Copy ID Test");
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Create Room" })
+      .click();
+
+    // Wait for room page
+    await expect(page).toHaveURL(/\/room\//);
+
+    // Should see the room ID copy button
+    const copyButton = page.locator(".room-id-copy-btn");
+    await expect(copyButton).toBeVisible();
+    await expect(copyButton).toContainText("ID:");
   });
 });

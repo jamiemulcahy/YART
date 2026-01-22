@@ -6,10 +6,14 @@ import { test, expect, Page } from "@playwright/test";
 async function setupRoomForFocus(page: Page, roomName: string) {
   // Create room as owner
   await page.goto("/");
+  // Switch to Create tab
+  await page.getByRole("button", { name: "Create Room" }).first().click();
   await page.getByLabel("Room Name").fill(roomName);
-  await page.getByRole("button", { name: "Create Room" }).click();
-  await expect(page.getByText("Room Created Successfully!")).toBeVisible();
-  await page.getByRole("button", { name: "Enter Room" }).click();
+  await page
+    .locator("form")
+    .getByRole("button", { name: "Create Room" })
+    .click();
+  // Navigates directly to room (no modal)
   await expect(page).toHaveURL(/\/room\//);
 
   // Wait for room to load

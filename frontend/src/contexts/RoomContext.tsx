@@ -83,7 +83,13 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           break;
 
         case "user_joined":
-          setUsers((prev) => [...prev, message.user]);
+          setUsers((prev) => {
+            // Prevent duplicates (can happen with StrictMode remounts)
+            if (prev.some((u) => u.id === message.user.id)) {
+              return prev;
+            }
+            return [...prev, message.user];
+          });
           break;
 
         case "user_left":
@@ -91,7 +97,13 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           break;
 
         case "card_published":
-          setCards((prev) => [...prev, message.card]);
+          setCards((prev) => {
+            // Prevent duplicates (can happen with StrictMode remounts)
+            if (prev.some((c) => c.id === message.card.id)) {
+              return prev;
+            }
+            return [...prev, message.card];
+          });
           break;
 
         case "card_deleted":
@@ -152,11 +164,14 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           break;
 
         case "column_added":
-          setRoom((prev) =>
-            prev
-              ? { ...prev, columns: [...prev.columns, message.column] }
-              : null
-          );
+          setRoom((prev) => {
+            if (!prev) return null;
+            // Prevent duplicates (can happen with StrictMode remounts)
+            if (prev.columns.some((c) => c.id === message.column.id)) {
+              return prev;
+            }
+            return { ...prev, columns: [...prev.columns, message.column] };
+          });
           break;
 
         case "column_updated":

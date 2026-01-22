@@ -30,24 +30,27 @@ test.describe("App Loading", () => {
     await expect(page.getByText("Yet Another Retro Tool")).toBeVisible();
   });
 
-  test("landing page has join and create sections", async ({ page }) => {
+  test("landing page has tabbed interface with join and create tabs", async ({
+    page,
+  }) => {
     await page.goto("/");
 
-    // Check for join section
-    await expect(
-      page.getByRole("heading", { name: "Join a Room" })
-    ).toBeVisible();
-    await expect(page.getByLabel("Room ID")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Join Room" })).toBeVisible();
+    // Check for tab navigation
+    const joinTab = page.getByRole("button", { name: "Join Room" }).first();
+    const createTab = page.getByRole("button", { name: "Create Room" }).first();
+    await expect(joinTab).toBeVisible();
+    await expect(createTab).toBeVisible();
 
-    // Check for create section
-    await expect(
-      page.getByRole("heading", { name: "Create a Room" })
-    ).toBeVisible();
+    // Join tab should be active by default and show Room ID input
+    await expect(page.getByLabel("Room ID")).toBeVisible();
+
+    // Click Create tab
+    await createTab.click();
     await expect(page.getByLabel("Room Name")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Create Room" })
-    ).toBeVisible();
+
+    // Click Join tab to switch back
+    await joinTab.click();
+    await expect(page.getByLabel("Room ID")).toBeVisible();
   });
 
   test("join room button is disabled when room ID is empty", async ({
@@ -55,8 +58,11 @@ test.describe("App Loading", () => {
   }) => {
     await page.goto("/");
 
-    const joinButton = page.getByRole("button", { name: "Join Room" });
-    await expect(joinButton).toBeDisabled();
+    // The submit button inside the form should be disabled when empty
+    const joinSubmitButton = page.locator("form").getByRole("button", {
+      name: "Join Room",
+    });
+    await expect(joinSubmitButton).toBeDisabled();
   });
 
   test("create room button is disabled when room name is empty", async ({
@@ -64,7 +70,13 @@ test.describe("App Loading", () => {
   }) => {
     await page.goto("/");
 
-    const createButton = page.getByRole("button", { name: "Create Room" });
-    await expect(createButton).toBeDisabled();
+    // Switch to create tab
+    await page.getByRole("button", { name: "Create Room" }).first().click();
+
+    // The submit button inside the form should be disabled when empty
+    const createSubmitButton = page.locator("form").getByRole("button", {
+      name: "Create Room",
+    });
+    await expect(createSubmitButton).toBeDisabled();
   });
 });
