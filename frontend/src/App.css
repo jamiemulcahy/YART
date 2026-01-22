@@ -245,7 +245,8 @@
 .room-page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .room-loading,
@@ -271,9 +272,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .room-header-left {
@@ -651,12 +653,11 @@
 .publish-mode,
 .group-mode {
   flex: 1;
-  padding: 1rem 1.5rem 1rem 1.5rem;
+  padding: 1rem 1.5rem 0.5rem 1.5rem;
   overflow-x: auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: calc(100vh - 80px);
 }
 
 .publish-mode-header,
