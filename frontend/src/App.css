@@ -1,8 +1,9 @@
 /* Global app styles */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Landing Page */
@@ -472,11 +473,12 @@
 .publish-mode,
 .group-mode {
   flex: 1;
-  padding: 1rem 2rem;
+  padding: 1rem 1.5rem 1rem 1.5rem;
   overflow-x: auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: calc(100vh - 80px);
 }
 
 .publish-mode-header,
@@ -495,6 +497,42 @@
   gap: 1.5rem;
   flex: 1;
   min-height: 0;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+/* Responsive column widths */
+@media (min-width: 1400px) {
+  .columns-container .column {
+    flex: 0 0 calc(25% - 1.125rem);
+    max-width: calc(25% - 1.125rem);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1399px) {
+  .columns-container .column {
+    flex: 0 0 calc(33.333% - 1rem);
+    max-width: calc(33.333% - 1rem);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .columns-container .column {
+    flex: 0 0 calc(50% - 0.75rem);
+    max-width: calc(50% - 0.75rem);
+  }
+}
+
+@media (max-width: 767px) {
+  .columns-container {
+    flex-direction: column;
+  }
+
+  .columns-container .column {
+    flex: 0 0 100%;
+    max-width: 100%;
+    min-width: unset;
+  }
 }
 
 .no-columns {
@@ -509,7 +547,6 @@
 .column {
   flex: 1;
   min-width: 280px;
-  max-width: 400px;
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.03);
