@@ -2,6 +2,8 @@ import { useParams, Link } from "react-router-dom";
 import { RoomProvider, useRoom } from "../contexts";
 import { RoomHeader } from "../components/RoomHeader";
 import { EditMode } from "../components/EditMode";
+import { PublishMode } from "../components/PublishMode";
+import { GroupMode } from "../components/GroupMode";
 
 function RoomContent() {
   const { room, isLoading, isConnected, error } = useRoom();
@@ -44,16 +46,8 @@ function RoomContent() {
           </div>
         )}
         {isConnected && room.mode === "edit" && <EditMode />}
-        {isConnected && room.mode === "publish" && (
-          <div className="room-loading">
-            <p>Publish mode coming soon...</p>
-          </div>
-        )}
-        {isConnected && room.mode === "group" && (
-          <div className="room-loading">
-            <p>Group mode coming soon...</p>
-          </div>
-        )}
+        {isConnected && room.mode === "publish" && <PublishMode />}
+        {isConnected && room.mode === "group" && <GroupMode />}
         {isConnected && room.mode === "vote" && (
           <div className="room-loading">
             <p>Vote mode coming soon...</p>

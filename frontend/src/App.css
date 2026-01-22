@@ -433,6 +433,280 @@
   max-width: 400px;
 }
 
+/* Publish Mode */
+.publish-mode,
+.group-mode {
+  flex: 1;
+  padding: 1rem 2rem;
+  overflow-x: auto;
+}
+
+.publish-mode-header,
+.group-mode-header {
+  margin-bottom: 1.5rem;
+}
+
+.publish-mode-header p,
+.group-mode-header p {
+  color: #888;
+  text-align: center;
+}
+
+.columns-container {
+  display: flex;
+  gap: 1.5rem;
+  min-height: 60vh;
+}
+
+.no-columns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: #888;
+}
+
+/* Column */
+.column {
+  flex: 1;
+  min-width: 280px;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.column-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.card-count {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.column-cards {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.no-cards {
+  color: #666;
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* Card */
+.card-item {
+  padding: 0.875rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: border-color 0.2s;
+}
+
+.card-item.own-card {
+  border-left: 3px solid #667eea;
+}
+
+.card-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.card-content {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.card-author {
+  color: #888;
+}
+
+.card-delete-btn {
+  margin-left: auto;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.card-delete-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.card-votes {
+  padding: 0.125rem 0.5rem;
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+/* Draft Area */
+.draft-area {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.draft-area-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.draft-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.draft-card-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.draft-card-item textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.draft-card-item textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.draft-card-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.draft-publish-btn {
+  flex: 1;
+  padding: 0.375rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.draft-publish-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.draft-delete-btn {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: transparent;
+  color: #888;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.draft-delete-btn:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.add-draft-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.add-draft-form textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.add-draft-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.add-draft-form button {
+  align-self: flex-end;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.add-draft-form button:hover:not(:disabled) {
+  background: rgba(102, 126, 234, 0.3);
+}
+
+.add-draft-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Utility classes */
 .spinner {
   width: 40px;
@@ -499,5 +773,35 @@
   .spinner {
     border-color: rgba(0, 0, 0, 0.1);
     border-top-color: #667eea;
+  }
+
+  .column {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .column-header {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .card-item {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .card-item:hover {
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+
+  .draft-area {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .draft-card-item textarea,
+  .add-draft-form textarea {
+    border-color: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.02);
   }
 }

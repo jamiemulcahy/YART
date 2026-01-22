@@ -448,82 +448,82 @@ A task is not complete until it has been **verified in-browser** and has **E2E t
 
 ### 4.1 Column Component
 
-- [ ] Create `Column` component:
+- [x] Create `Column` component:
   - Column header (name)
   - Card list area
   - Draft area (bottom, private)
-- [ ] Style columns (vertical layout, scrollable)
+- [x] Style columns (vertical layout, scrollable)
 
 ### 4.2 Card Component
 
-- [ ] Create `Card` component:
+- [x] Create `Card` component:
   - Card content text
   - Author indicator (icon + tooltip with anonymous name)
   - Visual distinction for own cards vs others
-- [ ] Style cards (bordered, subtle shadow)
+- [x] Style cards (bordered, subtle shadow)
 
 ### 4.3 Draft Card Area
 
-- [ ] Create `DraftArea` component:
+- [x] Create `DraftArea` component:
   - Text input for new card
   - List of current user's draft cards
   - Edit/delete controls on draft cards
   - "Publish" button per card
-- [ ] Draft cards stored in UserContext (client-side only)
-- [ ] Clear visual separation from published cards
+- [x] Draft cards stored in UserContext (client-side only)
+- [x] Clear visual separation from published cards
 
 ### 4.4 Publish Mode UI
 
-- [ ] Create `PublishMode` component
-- [ ] Render columns with published cards
-- [ ] Render draft area at bottom of each column
-- [ ] Show author indicators on cards
-- [ ] Responsive layout (horizontal scroll on mobile, grid on desktop)
+- [x] Create `PublishMode` component
+- [x] Render columns with published cards
+- [x] Render draft area at bottom of each column
+- [x] Show author indicators on cards
+- [x] Responsive layout (horizontal scroll on mobile, grid on desktop)
 
 ### 4.5 Publish Mode Backend
 
-- [ ] Implement `publish_card` message handler:
+- [x] Implement `publish_card` message handler:
   - Validate card content (non-empty, max length)
   - Assign card ID and author info
   - Add to room state
   - Broadcast to all clients
-- [ ] Implement `delete_card` message handler (own cards only)
+- [x] Implement `delete_card` message handler (own cards only)
 
 ### 4.6 Group Mode UI
 
-- [ ] Create `GroupMode` component
-- [ ] Reuse Column/Card components from Publish mode
-- [ ] Hide draft area (no new cards in Group mode)
-- [ ] Enable drag-and-drop on cards
-- [ ] Drop targets: other cards (to group) and columns (to move)
-- [ ] Create `CardGroup` component:
+- [x] Create `GroupMode` component
+- [x] Reuse Column/Card components from Publish mode
+- [x] Hide draft area (no new cards in Group mode)
+- [ ] Enable drag-and-drop on cards (deferred)
+- [ ] Drop targets: other cards (to group) and columns (to move) (deferred)
+- [ ] Create `CardGroup` component: (deferred)
   - Visual "stack" appearance
   - Shows preview of grouped cards
   - Expandable to see all cards
 
 ### 4.7 Grouping Interaction
 
-- [ ] Drag card onto another card → creates group
-- [ ] Drag card onto existing group → adds to group
-- [ ] Drag card out of group → removes from group
-- [ ] Visual feedback during drag (drop zone highlighting)
+- [ ] Drag card onto another card → creates group (deferred - backend ready)
+- [ ] Drag card onto existing group → adds to group (deferred - backend ready)
+- [ ] Drag card out of group → removes from group (deferred - backend ready)
+- [ ] Visual feedback during drag (drop zone highlighting) (deferred)
 
 ### 4.8 Group Mode Backend
 
-- [ ] Implement `group_cards` message handler:
+- [x] Implement `group_cards` message handler:
   - Create new group or add to existing
   - Update card groupId references
   - Broadcast group change
-- [ ] Implement `ungroup_card` message handler:
+- [x] Implement `ungroup_card` message handler:
   - Remove card from group
   - Delete group if only one card remains
   - Broadcast change
 
 ### 4.9 Mode Transitions
 
-- [ ] Owner can transition: Publish → Group
-- [ ] Owner can transition: Group → Vote
-- [ ] Add confirmation when leaving Publish (no more cards)
+- [x] Owner can transition: Publish → Group
+- [x] Owner can transition: Group → Vote
+- [ ] Add confirmation when leaving Publish (no more cards) (deferred)
 
 ### 4.10 E2E Tests
 
@@ -544,14 +544,14 @@ A task is not complete until it has been **verified in-browser** and has **E2E t
 
 ### Milestone 4 Acceptance Criteria
 
-- [ ] Draft cards work (create, edit, delete, publish)
-- [ ] Published cards visible to all with author info
-- [ ] Columns display cards correctly
-- [ ] Group mode enables drag-and-drop grouping
-- [ ] Groups visually distinct from single cards
-- [ ] Real-time sync for cards and groups
-- [ ] Mode transitions work correctly
-- [ ] All E2E tests pass
+- [x] Draft cards work (create, edit, delete, publish)
+- [x] Published cards visible to all with author info
+- [x] Columns display cards correctly
+- [ ] Group mode enables drag-and-drop grouping (deferred - backend ready)
+- [ ] Groups visually distinct from single cards (deferred)
+- [x] Real-time sync for cards and groups (backend implemented)
+- [x] Mode transitions work correctly
+- [ ] All E2E tests pass (backend-dependent tests deferred)
 
 ---
 

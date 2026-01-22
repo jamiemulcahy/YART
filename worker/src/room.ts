@@ -1,10 +1,28 @@
 import type { DurableObjectState } from "@cloudflare/workers-types";
 
+interface Card {
+  id: string;
+  columnId: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  votes: number;
+  groupId?: string;
+  actionItems: Array<{ id: string; content: string }>;
+}
+
+interface CardGroup {
+  id: string;
+  cardIds: string[];
+}
+
 interface RoomState {
   name: string;
   ownerKey: string;
   mode: "edit" | "publish" | "group" | "vote" | "focus" | "overview";
   columns: Array<{ id: string; name: string; order: number }>;
+  cards: Card[];
+  groups: CardGroup[];
   createdAt: string;
 }
 
@@ -42,6 +60,8 @@ export class RoomDO {
         ownerKey,
         mode: "edit",
         columns: [],
+        cards: [],
+        groups: [],
         createdAt: new Date().toISOString(),
       };
 
@@ -93,6 +113,8 @@ export class RoomDO {
             name: this.room.name,
             mode: this.room.mode,
             columns: this.room.columns,
+            cards: this.room.cards,
+            groups: this.room.groups,
             createdAt: this.room.createdAt,
           },
           user,
@@ -177,6 +199,26 @@ export class RoomDO {
             | "focus"
             | "overview"
         );
+        break;
+
+      case "publish_card":
+        await this.handlePublishCard(
+          ws,
+          data.columnId as string,
+          data.content as string
+        );
+        break;
+
+      case "delete_card":
+        await this.handleDeleteCard(ws, data.cardId as string);
+        break;
+
+      case "group_cards":
+        await this.handleGroupCards(data.cardIds as string[]);
+        break;
+
+      case "ungroup_card":
+        await this.handleUngroupCard(data.cardId as string);
         break;
 
       default:
@@ -270,6 +312,178 @@ export class RoomDO {
     await this.state.storage.put("room", this.room);
 
     this.broadcast(JSON.stringify({ type: "mode_changed", mode }));
+  }
+
+  private async handlePublishCard(
+    ws: WebSocket,
+    columnId: string,
+    content: string
+  ): Promise<void> {
+    if (!this.room || !columnId || !content?.trim()) return;
+
+    // Validate column exists
+    const column = this.room.columns.find((c) => c.id === columnId);
+    if (!column) return;
+
+    // Validate content length
+    const trimmedContent = content.trim();
+    if (trimmedContent.length > 1000) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          code: "CONTENT_TOO_LONG",
+          message: "Card content cannot exceed 1000 characters",
+        })
+      );
+      return;
+    }
+
+    // Get the user who sent this message
+    const user = this.connections.get(ws);
+    if (!user) return;
+
+    const card: Card = {
+      id: generateId(8),
+      columnId,
+      content: trimmedContent,
+      authorId: user.id,
+      authorName: user.name,
+      votes: 0,
+      actionItems: [],
+    };
+
+    this.room.cards.push(card);
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(JSON.stringify({ type: "card_published", card }));
+  }
+
+  private async handleDeleteCard(ws: WebSocket, cardId: string): Promise<void> {
+    if (!this.room || !cardId) return;
+
+    // Get the user who sent this message
+    const user = this.connections.get(ws);
+    if (!user) return;
+
+    // Find the card
+    const cardIndex = this.room.cards.findIndex((c) => c.id === cardId);
+    if (cardIndex === -1) return;
+
+    const card = this.room.cards[cardIndex];
+
+    // Only allow users to delete their own cards
+    if (card.authorId !== user.id) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          code: "UNAUTHORIZED",
+          message: "You can only delete your own cards",
+        })
+      );
+      return;
+    }
+
+    // Remove from any groups
+    if (card.groupId) {
+      const group = this.room.groups.find((g) => g.id === card.groupId);
+      if (group) {
+        group.cardIds = group.cardIds.filter((id) => id !== cardId);
+        // Remove group if less than 2 cards remain
+        if (group.cardIds.length < 2) {
+          this.room.groups = this.room.groups.filter((g) => g.id !== group.id);
+          // Clear groupId from remaining card if any
+          if (group.cardIds.length === 1) {
+            const remainingCard = this.room.cards.find(
+              (c) => c.id === group.cardIds[0]
+            );
+            if (remainingCard) {
+              remainingCard.groupId = undefined;
+            }
+          }
+        }
+      }
+    }
+
+    // Remove the card
+    this.room.cards.splice(cardIndex, 1);
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(JSON.stringify({ type: "card_deleted", cardId }));
+  }
+
+  private async handleGroupCards(cardIds: string[]): Promise<void> {
+    if (!this.room || !cardIds || cardIds.length < 2) return;
+
+    // Validate all cards exist and are in the same column
+    const cards = cardIds
+      .map((id) => this.room!.cards.find((c) => c.id === id))
+      .filter((c): c is Card => c !== undefined);
+
+    if (cards.length !== cardIds.length) return;
+
+    const columnId = cards[0].columnId;
+    if (!cards.every((c) => c.columnId === columnId)) return;
+
+    // Check if any card is already in a group
+    const existingGroupId = cards.find((c) => c.groupId)?.groupId;
+
+    if (existingGroupId) {
+      // Add cards to existing group
+      const group = this.room.groups.find((g) => g.id === existingGroupId);
+      if (group) {
+        for (const card of cards) {
+          if (!group.cardIds.includes(card.id)) {
+            group.cardIds.push(card.id);
+          }
+          card.groupId = group.id;
+        }
+        await this.state.storage.put("room", this.room);
+        this.broadcast(JSON.stringify({ type: "cards_grouped", group }));
+      }
+    } else {
+      // Create new group
+      const group: CardGroup = {
+        id: generateId(8),
+        cardIds: cardIds,
+      };
+      this.room.groups.push(group);
+
+      // Update card groupIds
+      for (const card of cards) {
+        card.groupId = group.id;
+      }
+
+      await this.state.storage.put("room", this.room);
+      this.broadcast(JSON.stringify({ type: "cards_grouped", group }));
+    }
+  }
+
+  private async handleUngroupCard(cardId: string): Promise<void> {
+    if (!this.room || !cardId) return;
+
+    const card = this.room.cards.find((c) => c.id === cardId);
+    if (!card || !card.groupId) return;
+
+    const group = this.room.groups.find((g) => g.id === card.groupId);
+    if (!group) return;
+
+    // Remove card from group
+    group.cardIds = group.cardIds.filter((id) => id !== cardId);
+    card.groupId = undefined;
+
+    // If only one card remains in group, dissolve the group
+    if (group.cardIds.length < 2) {
+      if (group.cardIds.length === 1) {
+        const lastCard = this.room.cards.find((c) => c.id === group.cardIds[0]);
+        if (lastCard) {
+          lastCard.groupId = undefined;
+        }
+      }
+      this.room.groups = this.room.groups.filter((g) => g.id !== group.id);
+    }
+
+    await this.state.storage.put("room", this.room);
+    this.broadcast(JSON.stringify({ type: "card_ungrouped", cardId }));
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {

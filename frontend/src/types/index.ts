@@ -12,6 +12,8 @@ export interface Room {
   name: string;
   mode: RoomMode;
   columns: Column[];
+  cards: Card[];
+  groups: CardGroup[];
   createdAt: string;
 }
 

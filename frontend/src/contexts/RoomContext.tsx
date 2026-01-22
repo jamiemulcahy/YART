@@ -72,6 +72,8 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
       switch (message.type) {
         case "state":
           setRoom(message.room);
+          setCards(message.room.cards || []);
+          setGroups(message.room.groups || []);
           setUser(message.user);
           setUsers(message.users);
           setIsLoading(false);
