@@ -1,5 +1,4 @@
 import { useRoom } from "../contexts/RoomContext";
-import { useUser } from "../contexts/UserContext";
 import type { Card } from "../types";
 
 interface OverviewCardProps {
@@ -109,12 +108,10 @@ function downloadMarkdown(content: string, filename: string) {
 
 export function OverviewMode() {
   const { room, cards } = useRoom();
-  const { ownerKey } = useUser();
 
   if (!room) return null;
 
   const sortedColumns = [...room.columns].sort((a, b) => a.order - b.order);
-  const isOwner = !!ownerKey;
 
   // Cards with action items are considered "discussed"
   const discussedCardIds = cards
@@ -136,11 +133,9 @@ export function OverviewMode() {
     <div className="overview-mode">
       <div className="overview-header">
         <h2>Retrospective Overview</h2>
-        {isOwner && (
-          <button onClick={handleExport} className="export-btn">
-            Export to Markdown
-          </button>
-        )}
+        <button onClick={handleExport} className="export-btn">
+          Export to Markdown
+        </button>
       </div>
 
       <div className="overview-columns">
