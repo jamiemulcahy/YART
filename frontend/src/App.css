@@ -580,9 +580,21 @@
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 0.75rem;
+  align-content: start;
+}
+
+/* Two-column masonry layout for wider columns */
+@media (min-width: 1400px) {
+  .column-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .column-cards .card-item {
+    break-inside: avoid;
+  }
 }
 
 .no-cards {
