@@ -17,9 +17,17 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:5173",
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: "pnpm --filter worker dev",
+      url: "http://localhost:8787/health",
+      reuseExistingServer: !process.env.CI,
+      timeout: 30000,
+    },
+    {
+      command: "pnpm dev",
+      url: "http://localhost:5173",
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 });

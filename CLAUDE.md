@@ -24,16 +24,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Use these tools to verify changes in the browser:
 
-| Tool | Purpose |
-|------|---------|
-| `browser_navigate` | Go to a URL |
-| `browser_snapshot` | Capture accessibility tree (preferred for inspection) |
-| `browser_click` | Click an element |
-| `browser_type` | Type into an input |
-| `browser_fill_form` | Fill multiple form fields |
-| `browser_press_key` | Press keyboard keys |
-| `browser_take_screenshot` | Capture visual screenshot |
-| `browser_console_messages` | Check for errors |
+| Tool                       | Purpose                                               |
+| -------------------------- | ----------------------------------------------------- |
+| `browser_navigate`         | Go to a URL                                           |
+| `browser_snapshot`         | Capture accessibility tree (preferred for inspection) |
+| `browser_click`            | Click an element                                      |
+| `browser_type`             | Type into an input                                    |
+| `browser_fill_form`        | Fill multiple form fields                             |
+| `browser_press_key`        | Press keyboard keys                                   |
+| `browser_take_screenshot`  | Capture visual screenshot                             |
+| `browser_console_messages` | Check for errors                                      |
 
 ### Example Workflow
 
@@ -77,6 +77,7 @@ Use these tools to verify changes in the browser:
 - **Pass tests** - Never commit code that breaks the build or tests
 
 **Good commit granularity:**
+
 ```
 feat(room): add Column component with drag handle
 test(room): add E2E tests for column reordering
@@ -84,6 +85,7 @@ fix(room): prevent duplicate column names
 ```
 
 **Bad commit granularity:**
+
 ```
 WIP
 fix stuff
@@ -93,6 +95,7 @@ add column component and tests and also fix bug and update docs
 ### When to Commit
 
 Commit after completing a logical unit:
+
 - A single component + its tests
 - A single bug fix + its test
 - A refactor that doesn't change behaviour
@@ -111,35 +114,41 @@ YART (Yet Another Retro Tool) is a real-time retrospective facilitation tool for
 pnpm install
 
 # Development (run both in separate terminals)
-pnpm dev              # Frontend dev server (Vite)
-pnpm wrangler dev     # Worker dev server
+pnpm dev              # Frontend dev server (Vite) - localhost:5173
+pnpm dev:worker       # Worker dev server (Wrangler) - localhost:8787
 
 # Testing
 pnpm test             # Unit tests (Vitest)
 pnpm test --watch     # Unit tests watch mode
-pnpm test:e2e         # E2E tests (Playwright)
+pnpm test:e2e         # E2E tests (Playwright) - auto-starts both servers
 pnpm test:e2e --ui    # E2E tests with debugging UI
 pnpm test:e2e e2e/room-creation.spec.ts  # Run specific E2E test
 ```
 
+> **Note**: E2E tests automatically start both the frontend and worker servers. For manual development, run both `pnpm dev` and `pnpm dev:worker` in separate terminals.
+
 ## Architecture
 
 **Real-time data flow:**
+
 ```
 Browser → WebSocket → Cloudflare Worker → Durable Objects
 ```
 
 **State Management:**
+
 - React Context API (RoomContext for room state, UserContext for user identity)
 - Real-time sync via WebSocket to Cloudflare Worker
 - Each room managed by dedicated Durable Object instance
 
 **Backend Endpoints:**
+
 - `POST /api/rooms` - Create new room
 - `GET /api/rooms/:id` - Check if room exists
 - `GET /api/rooms/:id/ws` - WebSocket upgrade
 
 **Room Modes (retrospective phases):**
+
 1. Edit - Owner configures columns
 2. Publish - Participants add cards
 3. Group - Collaboratively group related cards
@@ -150,6 +159,7 @@ Browser → WebSocket → Cloudflare Worker → Durable Objects
 ## Code Conventions
 
 **Naming:**
+
 - Components: PascalCase (CardList.tsx)
 - Hooks: camelCase with 'use' prefix (useRoom.ts)
 - Types/Interfaces: PascalCase (RoomState)
@@ -157,16 +167,19 @@ Browser → WebSocket → Cloudflare Worker → Durable Objects
 - CSS classes: kebab-case
 
 **TypeScript:**
+
 - Strict mode enabled
 - Prefer explicit types over `any`; use `unknown` when type is truly unknown
 
 **Testing Philosophy:**
+
 - Favour E2E tests (Playwright) for user flow coverage
 - Use accessible selectors: `getByRole`, `getByLabel`, `getByText`
 - Unit tests (Vitest) for complex logic, edge cases, or utilities
 - Each test independent (no shared state)
 
 **Commit Messages (Conventional Commits):**
+
 ```
 feat(scope): description
 fix(scope): description
