@@ -442,7 +442,7 @@ A task is not complete until it has been **verified in-browser** and has **E2E t
 
 ---
 
-## Milestone 4: Publish + Group Modes
+## Milestone 4: Publish + Group Modes ✅ COMPLETE
 
 **Goal**: Participants can add cards and group related items.
 
@@ -555,7 +555,7 @@ A task is not complete until it has been **verified in-browser** and has **E2E t
 
 ---
 
-## Milestone 5: Vote + Focus + Overview Modes
+## Milestone 5: Vote + Focus + Overview Modes ✅ COMPLETE
 
 **Goal**: Complete the retrospective workflow with voting, discussion, and export.
 
