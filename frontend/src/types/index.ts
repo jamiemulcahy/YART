@@ -49,6 +49,7 @@ export interface User {
   id: string;
   name: string;
   isOwner: boolean;
+  votesCount?: number;
 }
 
 export interface DraftCard {
@@ -93,6 +94,7 @@ export type ServerMessage =
   | { type: "cards_grouped"; group: CardGroup }
   | { type: "card_ungrouped"; cardId: string }
   | { type: "vote_recorded"; cardId: string; votes: number }
+  | { type: "vote_progress"; userId: string; votesCount: number }
   | { type: "mode_changed"; mode: RoomMode }
   | { type: "column_added"; column: Column }
   | { type: "column_updated"; column: Column }

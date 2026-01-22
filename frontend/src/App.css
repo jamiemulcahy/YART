@@ -989,6 +989,114 @@
   color: #888;
 }
 
+/* Vote Progress Table */
+.vote-main-content {
+  display: flex;
+  flex: 1;
+  gap: 2rem;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 900px;
+}
+
+.vote-progress-table {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  min-width: 250px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.vote-progress-table h3 {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vote-progress-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.vote-progress-table th,
+.vote-progress-table td {
+  padding: 0.5rem;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.vote-progress-table th {
+  color: #888;
+  font-weight: 500;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vote-progress-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.vote-progress-table tr:last-child td {
+  border-bottom: none;
+}
+
+.progress-count {
+  font-size: 0.75rem;
+  color: #888;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .vote-main-content {
+    flex-direction: column;
+  }
+
+  .vote-progress-table {
+    width: 100%;
+    max-width: 400px;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  .vote-progress-table {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .vote-progress-table th {
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .vote-progress-table td {
+    border-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .progress-bar {
+    background: rgba(0, 0, 0, 0.1);
+  }
+}
+
 /* Focus Mode - Column View */
 .focus-mode {
   flex: 1;

@@ -159,6 +159,16 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           );
           break;
 
+        case "vote_progress":
+          setUsers((prev) =>
+            prev.map((user) =>
+              user.id === message.userId
+                ? { ...user, votesCount: message.votesCount }
+                : user
+            )
+          );
+          break;
+
         case "mode_changed":
           setRoom((prev) => (prev ? { ...prev, mode: message.mode } : null));
           break;

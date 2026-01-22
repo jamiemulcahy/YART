@@ -75,7 +75,7 @@ function SwipeCard({ card, columnName, onVote, isEntering }: SwipeCardProps) {
 }
 
 export function VoteMode() {
-  const { room, cards, vote } = useRoom();
+  const { room, cards, users, vote } = useRoom();
   const { votedCardIds, addVotedCard } = useUser();
   const [isEntering, setIsEntering] = useState(false);
   const prevCardIdRef = useRef<string | null>(null);
@@ -165,20 +165,54 @@ export function VoteMode() {
   return (
     <div className="vote-mode">
       <div className="vote-header">
-        <p>Swipe right for Yes, left for No (or use ← → arrow keys)</p>
+        <p>Swipe right for Yes, left for No (or use arrow keys)</p>
         <div className="vote-progress">
           {progress} / {total} cards
         </div>
       </div>
 
-      <div className="swipe-container">
-        <SwipeCard
-          key={currentCard.id}
-          card={currentCard}
-          columnName={getColumnName(currentCard.columnId)}
-          onVote={handleVote}
-          isEntering={isEntering}
-        />
+      <div className="vote-main-content">
+        <div className="swipe-container">
+          <SwipeCard
+            key={currentCard.id}
+            card={currentCard}
+            columnName={getColumnName(currentCard.columnId)}
+            onVote={handleVote}
+            isEntering={isEntering}
+          />
+        </div>
+
+        <div className="vote-progress-table">
+          <h3>Voting Progress</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Participant</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.name}</td>
+                  <td>
+                    <span className="progress-count">
+                      {user.votesCount || 0} / {total}
+                    </span>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{
+                          width: `${((user.votesCount || 0) / total) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="vote-buttons">

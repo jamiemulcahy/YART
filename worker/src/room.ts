@@ -31,6 +31,7 @@ interface User {
   id: string;
   name: string;
   isOwner: boolean;
+  votesCount: number;
 }
 
 export class RoomDO {
@@ -126,6 +127,7 @@ export class RoomDO {
         id: generateId(16),
         name: generateAnonymousName(),
         isOwner: false,
+        votesCount: 0,
       };
 
       // Accept WebSocket with hibernation API and attach user data
@@ -538,7 +540,7 @@ export class RoomDO {
   }
 
   private async handleVote(
-    _ws: WebSocket,
+    ws: WebSocket,
     cardId: string,
     vote: boolean
   ): Promise<void> {
@@ -560,6 +562,21 @@ export class RoomDO {
         votes: card.votes,
       })
     );
+
+    // Update user's vote progress count
+    const user = this.getUser(ws);
+    if (user) {
+      user.votesCount = (user.votesCount || 0) + 1;
+      this.setUser(ws, user);
+      // Broadcast vote progress to all users
+      this.broadcast(
+        JSON.stringify({
+          type: "vote_progress",
+          userId: user.id,
+          votesCount: user.votesCount,
+        })
+      );
+    }
   }
 
   private async handleSetFocus(cardId: string | null): Promise<void> {
