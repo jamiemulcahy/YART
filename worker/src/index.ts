@@ -23,7 +23,7 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // Health check
+    // Health check - quick response, no DO interaction
     if (path === "/health") {
       return new Response(JSON.stringify({ status: "ok" }), {
         headers: { "Content-Type": "application/json", ...corsHeaders },

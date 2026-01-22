@@ -29,4 +29,42 @@ test.describe("App Loading", () => {
 
     await expect(page.getByText("Yet Another Retro Tool")).toBeVisible();
   });
+
+  test("landing page has join and create sections", async ({ page }) => {
+    await page.goto("/");
+
+    // Check for join section
+    await expect(
+      page.getByRole("heading", { name: "Join a Room" })
+    ).toBeVisible();
+    await expect(page.getByLabel("Room ID")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Join Room" })).toBeVisible();
+
+    // Check for create section
+    await expect(
+      page.getByRole("heading", { name: "Create a Room" })
+    ).toBeVisible();
+    await expect(page.getByLabel("Room Name")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Create Room" })
+    ).toBeVisible();
+  });
+
+  test("join room button is disabled when room ID is empty", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const joinButton = page.getByRole("button", { name: "Join Room" });
+    await expect(joinButton).toBeDisabled();
+  });
+
+  test("create room button is disabled when room name is empty", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const createButton = page.getByRole("button", { name: "Create Room" });
+    await expect(createButton).toBeDisabled();
+  });
 });

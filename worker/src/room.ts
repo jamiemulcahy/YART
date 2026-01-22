@@ -110,18 +110,166 @@ export class RoomDO {
   }
 
   async webSocketMessage(
-    _ws: WebSocket,
+    ws: WebSocket,
     message: string | ArrayBuffer
   ): Promise<void> {
     if (typeof message !== "string") return;
+    if (!this.room) return;
 
     try {
       const data = JSON.parse(message);
-      // Message handling will be implemented in later milestones
-      console.log("Received message:", data);
+      await this.handleMessage(ws, data);
     } catch {
       console.error("Failed to parse WebSocket message");
     }
+  }
+
+  private async handleMessage(
+    ws: WebSocket,
+    data: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.room) return;
+
+    const type = data.type as string;
+
+    // Owner actions require owner key validation
+    if (type.startsWith("owner:")) {
+      const ownerKey = data.ownerKey as string;
+      if (!this.validateOwnerKey(ownerKey)) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            code: "UNAUTHORIZED",
+            message: "Invalid owner key",
+          })
+        );
+        return;
+      }
+    }
+
+    switch (type) {
+      case "owner:add_column":
+        await this.handleAddColumn(data.name as string);
+        break;
+
+      case "owner:update_column":
+        await this.handleUpdateColumn(
+          data.columnId as string,
+          data.name as string
+        );
+        break;
+
+      case "owner:delete_column":
+        await this.handleDeleteColumn(data.columnId as string);
+        break;
+
+      case "owner:reorder_columns":
+        await this.handleReorderColumns(data.columnIds as string[]);
+        break;
+
+      case "owner:set_mode":
+        await this.handleSetMode(
+          data.mode as
+            | "edit"
+            | "publish"
+            | "group"
+            | "vote"
+            | "focus"
+            | "overview"
+        );
+        break;
+
+      default:
+        console.log("Unknown message type:", type);
+    }
+  }
+
+  private validateOwnerKey(key: string): boolean {
+    return this.room?.ownerKey === key;
+  }
+
+  private async handleAddColumn(name: string): Promise<void> {
+    if (!this.room || !name?.trim()) return;
+
+    const column = {
+      id: generateId(8),
+      name: name.trim(),
+      order: this.room.columns.length,
+    };
+
+    this.room.columns.push(column);
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(JSON.stringify({ type: "column_added", column }));
+  }
+
+  private async handleUpdateColumn(
+    columnId: string,
+    name: string
+  ): Promise<void> {
+    if (!this.room || !columnId || !name?.trim()) return;
+
+    const column = this.room.columns.find((c) => c.id === columnId);
+    if (!column) return;
+
+    column.name = name.trim();
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(JSON.stringify({ type: "column_updated", column }));
+  }
+
+  private async handleDeleteColumn(columnId: string): Promise<void> {
+    if (!this.room || !columnId) return;
+
+    const index = this.room.columns.findIndex((c) => c.id === columnId);
+    if (index === -1) return;
+
+    this.room.columns.splice(index, 1);
+
+    // Re-order remaining columns
+    this.room.columns.forEach((col, i) => {
+      col.order = i;
+    });
+
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(JSON.stringify({ type: "column_deleted", columnId }));
+  }
+
+  private async handleReorderColumns(columnIds: string[]): Promise<void> {
+    if (!this.room || !columnIds?.length) return;
+
+    // Validate all column IDs exist
+    const existingIds = new Set(this.room.columns.map((c) => c.id));
+    if (!columnIds.every((id) => existingIds.has(id))) return;
+
+    // Update order based on the new array
+    const columnMap = new Map(this.room.columns.map((c) => [c.id, c]));
+    this.room.columns = columnIds
+      .map((id, index) => {
+        const col = columnMap.get(id);
+        if (col) {
+          col.order = index;
+          return col;
+        }
+        return null;
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(JSON.stringify({ type: "columns_reordered", columnIds }));
+  }
+
+  private async handleSetMode(
+    mode: "edit" | "publish" | "group" | "vote" | "focus" | "overview"
+  ): Promise<void> {
+    if (!this.room || !mode) return;
+
+    this.room.mode = mode;
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(JSON.stringify({ type: "mode_changed", mode }));
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
