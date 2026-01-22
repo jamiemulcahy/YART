@@ -109,12 +109,12 @@ function downloadMarkdown(content: string, filename: string) {
 
 export function OverviewMode() {
   const { room, cards } = useRoom();
-  const { user } = useUser();
+  const { ownerKey } = useUser();
 
   if (!room) return null;
 
   const sortedColumns = [...room.columns].sort((a, b) => a.order - b.order);
-  const isOwner = user?.isOwner ?? false;
+  const isOwner = !!ownerKey;
 
   // Cards with action items are considered "discussed"
   const discussedCardIds = cards

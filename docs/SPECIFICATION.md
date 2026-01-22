@@ -74,11 +74,13 @@ The landing page is the entry point for all users.
 ### Actions Available
 
 **Join Existing Room**
+
 - Input: Room ID
 - Action: Navigates to the room if it exists
 - Error handling: Display message if room not found
 
 **Create New Room**
+
 - Input: Room Name
 - Action: Creates room and navigates to it
 - Output: User receives Room ID (to share) and Owner Key (to keep secret)
@@ -98,6 +100,7 @@ See `spec/wireframe-landing-page.png`
 **Available to**: Room owner only
 
 **Features**:
+
 - Add new columns
 - Rename existing columns
 - Reorder columns (drag and drop)
@@ -113,6 +116,7 @@ See `spec/wireframe-landing-page.png`
 **Available to**: All room members
 
 **Features**:
+
 - View all columns
 - Add cards to the draft area of any column
 - Edit draft cards
@@ -122,6 +126,7 @@ See `spec/wireframe-landing-page.png`
 - See anonymous author indicator on cards
 
 **Draft Area**:
+
 - Located at the bottom of each column
 - Completely private to each user
 - Cards only become visible to others when explicitly published
@@ -137,10 +142,19 @@ See `spec/wireframe-landing-page.png`
 **Available to**: All room members
 
 **Features**:
+
 - View all columns with published cards
 - Drag and drop cards onto other cards to create groups
-- Drag cards out of groups to ungroup
-- Groups are visually distinct (stacked/clustered appearance)
+- Groups can only contain cards from the same column
+- Drag cards onto existing groups to add them
+- Click the "x" button on grouped cards to ungroup them
+- Groups are visually distinct with a stacked appearance and card count badge
+
+**Grouping Rules**:
+
+- Only cards within the same column can be grouped together
+- Dropping a card on a card from a different column has no effect
+- Groups display all contained cards with the option to remove individual cards
 
 **Wireframe Reference**: See `spec/wireframe-room-publish-mode.png` (similar layout)
 
@@ -152,17 +166,29 @@ See `spec/wireframe-landing-page.png`
 
 **Available to**: All room members
 
-**UI Approach**: Tinder-style swipe interface
+**UI Approach**: Tinder-style swipe interface with keyboard support
 
 **Features**:
+
 - Columns are hidden
 - Cards/groups are presented one at a time
 - Each card is enlarged to fill most of the vertical space
 - Source column title is displayed near the top for context
-- Users swipe right (or tap "Yes") to vote for discussion
-- Users swipe left (or tap "No") to skip
+- Progress indicator shows remaining cards (e.g., "0 / 5 cards voted")
+- Card entrance animation when transitioning between cards
+
+**Voting Methods**:
+
+- Swipe right (or tap "Yes" button) to vote for discussion
+- Swipe left (or tap "No" button) to skip
+- Press Right Arrow key to vote yes
+- Press Left Arrow key to vote no
+
+**Behaviour**:
+
 - Each user votes on every card/group
-- Progress indicator shows remaining cards
+- Votes are recorded immediately and affect the card's vote count
+- After voting on all cards, a "Voting Complete!" message is shown
 
 **Wireframe Reference**: See `spec/wireframe-room-vote-mode.png`
 
@@ -172,24 +198,36 @@ See `spec/wireframe-landing-page.png`
 
 **Purpose**: Structured discussion of prioritised cards.
 
-**Available to**: All room members (viewing), Room owner (navigation and actions)
+**Available to**: All room members (viewing), Room owner (selection and actions)
 
-**Pre-discussion Setup**:
-- Owner selects how many cards to discuss per column
-- Cards are ordered by vote count (highest first)
+**Layout**:
+
+- Column-based view similar to Group mode
+- Cards and groups are displayed within their columns
+- Items sorted by vote count (highest first) within each column
+- Groups show combined vote count (sum of all cards in group)
+- Vote badges displayed on each card/group
+
+**Discussion Modal**:
+
+- Owner clicks on any card or group to open a discussion modal
+- Modal displays:
+  - Column name header
+  - Card content (or all cards if a group)
+  - Author name(s) and vote count
+  - Action items list
+  - Action item input form (owner only)
+- Close button (owner only) to dismiss the modal
+- All participants see the same modal when owner selects a card (synchronised view)
 
 **Features**:
-- All users see the same card at the same time (synchronised view)
-- Cards are enlarged similar to vote mode
-- Source column title displayed for context
-- Owner navigates between cards (previous/next)
-- Action items section at the bottom of each card
+
 - Owner can add action items during discussion
-- Action items are saved to the card
+- Action items are saved to the focused card
+- Participants see the discussion modal but cannot close it or add actions
+- Owner can discuss any card in any order (not restricted to linear navigation)
 
-**Wireframe Reference**: See `spec/wireframe-room-focus-mode.png`
-
-**Transitions to**: Overview Mode (when all cards discussed or owner ends)
+**Transitions to**: Overview Mode (owner action)
 
 ### Overview Mode
 
@@ -198,6 +236,7 @@ See `spec/wireframe-landing-page.png`
 **Available to**: All room members (viewing), Room owner (export)
 
 **Features**:
+
 - Returns to column-based layout (similar to Publish mode)
 - All columns visible with their grouped cards
 - Vote counts displayed on cards
@@ -205,6 +244,7 @@ See `spec/wireframe-landing-page.png`
 - Cards that were discussed may be highlighted
 
 **Export Function** (Owner only):
+
 - Generates a Markdown file containing:
   - Room title
   - Summary of discussed cards with their action items (organised by column)
@@ -234,40 +274,61 @@ The Markdown export follows this structure:
 # [Room Name] - Retrospective Summary
 
 ## Date
-[Date of export]
+
+[Full date, e.g., "Wednesday, January 22, 2026"]
 
 ## Discussed Items
 
-### [Column 1 Name]
-#### [Card/Group Title or First Line]
-[Card content]
+### [Column Name]
 
-**Actions:**
-- [ ] Action item 1
-- [ ] Action item 2
+**[Card content]** (X votes, by [Author Name])
 
----
+Action Items:
+
+- [Action item 1]
+- [Action item 2]
+
+### [Column Name]
+
+**[Card content]** (X votes, by [Author Name])
+
+...
 
 ## All Cards
 
 ### [Column 1 Name]
-- [Card content] (Author: Anonymous Name) [Votes: X]
-- [Card content] (Author: Anonymous Name) [Votes: X]
+
+- **[Card content]** (discussed)
+  - X votes, by [Author Name]
+  - Actions:
+    - [Action item 1]
+    - [Action item 2]
+- **[Card content]**
+  - X votes, by [Author Name]
 
 ### [Column 2 Name]
+
 ...
 ```
+
+**Export Details**:
+
+- Cards with action items are considered "discussed"
+- Cards are sorted by vote count (highest first) within each column
+- The "(discussed)" tag is added to cards that have action items
+- Export filename format: `[room-name]-retro-[YYYY-MM-DD].md`
+- Export is triggered via "Export to Markdown" button (owner only)
 
 ---
 
 ## Error States
 
-| Scenario | Handling |
-|----------|----------|
-| Room not found | Display error message, return to landing |
-| Connection lost | Display reconnecting indicator, auto-reconnect |
-| Owner key invalid | Reject owner action, display permission error |
-| Room mode mismatch | Sync to current mode from server |
+| Scenario           | Handling                                       |
+| ------------------ | ---------------------------------------------- |
+| Room not found     | Display error message, return to landing       |
+| Connection lost    | Display reconnecting indicator, auto-reconnect |
+| Owner key invalid  | Reject owner action, display permission error  |
+| Room mode mismatch | Sync to current mode from server               |
 
 ---
 
