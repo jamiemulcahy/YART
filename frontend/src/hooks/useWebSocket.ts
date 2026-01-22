@@ -18,6 +18,7 @@ interface UseWebSocketReturn {
 
 const RECONNECT_DELAY_BASE = 1000;
 const RECONNECT_DELAY_MAX = 30000;
+const PING_INTERVAL = 20000; // 20 seconds - more aggressive to prevent timeouts
 
 export function useWebSocket(
   roomId: string | null,
@@ -33,106 +34,191 @@ export function useWebSocket(
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const messageQueueRef = useRef<ClientMessage[]>([]);
   const shouldReconnect = useRef(true);
+  const isCleaningUp = useRef(false);
 
-  const connect = useCallback(() => {
-    if (!roomId) {
-      return;
+  // Use refs for callbacks to avoid reconnection when callbacks change
+  const onMessageRef = useRef(onMessage);
+  const onConnectRef = useRef(onConnect);
+  const onDisconnectRef = useRef(onDisconnect);
+  const onErrorRef = useRef(onError);
+
+  // Update refs when callbacks change (synchronously during render for immediate availability)
+  onMessageRef.current = onMessage;
+  onConnectRef.current = onConnect;
+  onDisconnectRef.current = onDisconnect;
+  onErrorRef.current = onError;
+
+  const clearPingInterval = useCallback(() => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
     }
+  }, []);
 
-    // Check if there's already an open or connecting WebSocket
-    const currentWs = wsRef.current;
-    if (
-      currentWs &&
-      (currentWs.readyState === WebSocket.OPEN ||
-        currentWs.readyState === WebSocket.CONNECTING)
-    ) {
-      return;
-    }
-
-    const url = getWebSocketUrl(roomId);
-    const ws = new WebSocket(url);
-
-    ws.onopen = () => {
-      setIsConnected(true);
-      reconnectAttempts.current = 0;
-      onConnect?.();
-
-      // Send queued messages
-      while (messageQueueRef.current.length > 0) {
-        const msg = messageQueueRef.current.shift();
-        if (msg) {
-          ws.send(JSON.stringify(msg));
-        }
-      }
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data) as ServerMessage;
-        setLastMessage(message);
-        onMessage?.(message);
-      } catch {
-        console.error("Failed to parse WebSocket message");
-      }
-    };
-
-    ws.onclose = () => {
-      setIsConnected(false);
-      wsRef.current = null;
-      onDisconnect?.();
-
-      // Attempt reconnection with exponential backoff
-      if (shouldReconnect.current && roomId) {
-        const delay = Math.min(
-          RECONNECT_DELAY_BASE * Math.pow(2, reconnectAttempts.current),
-          RECONNECT_DELAY_MAX
-        );
-        reconnectAttempts.current++;
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, delay);
-      }
-    };
-
-    ws.onerror = (error) => {
-      onError?.(error);
-    };
-
-    wsRef.current = ws;
-  }, [roomId, onMessage, onConnect, onDisconnect, onError]);
-
-  const disconnect = useCallback(() => {
-    shouldReconnect.current = false;
-
+  const clearReconnectTimeout = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
+  }, []);
+
+  const connect = useCallback(
+    (targetRoomId: string) => {
+      if (!targetRoomId || isCleaningUp.current) {
+        return;
+      }
+
+      // Check if there's already an open or connecting WebSocket
+      const currentWs = wsRef.current;
+      if (
+        currentWs &&
+        (currentWs.readyState === WebSocket.OPEN ||
+          currentWs.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
+
+      const url = getWebSocketUrl(targetRoomId);
+      const ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        // Don't proceed if we're cleaning up
+        if (isCleaningUp.current) {
+          ws.close();
+          return;
+        }
+
+        setIsConnected(true);
+        reconnectAttempts.current = 0;
+        onConnectRef.current?.();
+
+        // Send queued messages
+        while (messageQueueRef.current.length > 0) {
+          const msg = messageQueueRef.current.shift();
+          if (msg && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(msg));
+          }
+        }
+
+        // Clear any existing ping interval
+        clearPingInterval();
+
+        // Send initial ping immediately to establish keepalive
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
+
+        // Start ping interval to keep connection alive
+        pingIntervalRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, PING_INTERVAL);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data) as ServerMessage;
+          // Ignore pong messages
+          if (message.type === "pong") return;
+          setLastMessage(message);
+          onMessageRef.current?.(message);
+        } catch {
+          console.error("Failed to parse WebSocket message");
+        }
+      };
+
+      ws.onclose = () => {
+        setIsConnected(false);
+
+        // Only clear wsRef if it's still pointing to this WebSocket
+        if (wsRef.current === ws) {
+          wsRef.current = null;
+        }
+
+        // Clear ping interval
+        clearPingInterval();
+
+        // Don't call disconnect callback or reconnect during cleanup
+        if (isCleaningUp.current) {
+          return;
+        }
+
+        onDisconnectRef.current?.();
+
+        // Attempt reconnection with exponential backoff
+        if (shouldReconnect.current && targetRoomId) {
+          const delay = Math.min(
+            RECONNECT_DELAY_BASE * Math.pow(2, reconnectAttempts.current),
+            RECONNECT_DELAY_MAX
+          );
+          reconnectAttempts.current++;
+
+          clearReconnectTimeout();
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (!isCleaningUp.current) {
+              connect(targetRoomId);
+            }
+          }, delay);
+        }
+      };
+
+      ws.onerror = (error) => {
+        if (!isCleaningUp.current) {
+          onErrorRef.current?.(error);
+        }
+      };
+
+      wsRef.current = ws;
+    },
+    [clearPingInterval, clearReconnectTimeout]
+  );
+
+  const disconnect = useCallback(() => {
+    isCleaningUp.current = true;
+    shouldReconnect.current = false;
+
+    clearReconnectTimeout();
+    clearPingInterval();
 
     if (wsRef.current) {
-      wsRef.current.close();
+      // Remove handlers to prevent callbacks during close
+      wsRef.current.onopen = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+
+      if (
+        wsRef.current.readyState === WebSocket.OPEN ||
+        wsRef.current.readyState === WebSocket.CONNECTING
+      ) {
+        wsRef.current.close();
+      }
       wsRef.current = null;
     }
 
     setIsConnected(false);
-  }, []);
+  }, [clearReconnectTimeout, clearPingInterval]);
 
   const send = useCallback((message: ClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     } else {
-      // Queue message if not connected
+      // Queue message if not connected - will be sent on reconnect
       messageQueueRef.current.push(message);
     }
   }, []);
 
   useEffect(() => {
     if (roomId) {
+      // Reset cleanup flag when connecting
+      isCleaningUp.current = false;
       shouldReconnect.current = true;
-      connect();
+      reconnectAttempts.current = 0;
+      connect(roomId);
     }
 
     return () => {

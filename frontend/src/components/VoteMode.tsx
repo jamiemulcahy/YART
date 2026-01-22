@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRoom } from "../contexts/RoomContext";
 import { useUser } from "../contexts/UserContext";
 import type { Card } from "../types";
@@ -7,9 +7,10 @@ interface SwipeCardProps {
   card: Card;
   columnName: string;
   onVote: (vote: boolean) => void;
+  isEntering: boolean;
 }
 
-function SwipeCard({ card, columnName, onVote }: SwipeCardProps) {
+function SwipeCard({ card, columnName, onVote, isEntering }: SwipeCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -47,7 +48,7 @@ function SwipeCard({ card, columnName, onVote }: SwipeCardProps) {
   return (
     <div
       ref={cardRef}
-      className={`swipe-card ${isDragging ? "dragging" : ""}`}
+      className={`swipe-card ${isDragging ? "dragging" : ""} ${isEntering ? "entering" : ""}`}
       style={{
         transform: `translateX(${offset}px) rotate(${rotation}deg)`,
         opacity,
@@ -76,11 +77,36 @@ function SwipeCard({ card, columnName, onVote }: SwipeCardProps) {
 export function VoteMode() {
   const { room, cards, vote } = useRoom();
   const { votedCardIds, addVotedCard } = useUser();
-
-  if (!room) return null;
+  const [isEntering, setIsEntering] = useState(false);
+  const prevCardIdRef = useRef<string | null>(null);
 
   // Filter cards that haven't been voted on yet
-  const unvotedCards = cards.filter((card) => !votedCardIds.includes(card.id));
+  const unvotedCards = room
+    ? cards.filter((card) => !votedCardIds.includes(card.id))
+    : [];
+  const currentCard = unvotedCards[0];
+
+  // Trigger entrance animation when the current card changes
+  useEffect(() => {
+    if (currentCard && currentCard.id !== prevCardIdRef.current) {
+      // Only animate if this isn't the first card
+      if (prevCardIdRef.current !== null) {
+        setIsEntering(true);
+        const timer = setTimeout(() => setIsEntering(false), 300);
+        return () => clearTimeout(timer);
+      }
+      prevCardIdRef.current = currentCard.id;
+    }
+  }, [currentCard]);
+
+  // Update ref after animation starts
+  useEffect(() => {
+    if (currentCard) {
+      prevCardIdRef.current = currentCard.id;
+    }
+  }, [currentCard]);
+
+  if (!room) return null;
 
   // Get column name for a card
   const getColumnName = (columnId: string): string => {
@@ -88,13 +114,34 @@ export function VoteMode() {
     return column?.name || "Unknown";
   };
 
-  const handleVote = (voteValue: boolean) => {
-    const card = unvotedCards[0];
-    if (!card) return;
+  const handleVote = useCallback(
+    (voteValue: boolean) => {
+      const card = unvotedCards[0];
+      if (!card) return;
 
-    vote(card.id, voteValue);
-    addVotedCard(card.id);
-  };
+      vote(card.id, voteValue);
+      addVotedCard(card.id);
+    },
+    [unvotedCards, vote, addVotedCard]
+  );
+
+  // Keyboard navigation: arrow keys to vote
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (unvotedCards.length === 0) return;
+
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        handleVote(true);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handleVote(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleVote, unvotedCards.length]);
 
   // All cards voted
   if (unvotedCards.length === 0) {
@@ -112,14 +159,13 @@ export function VoteMode() {
     );
   }
 
-  const currentCard = unvotedCards[0];
   const progress = votedCardIds.length;
   const total = cards.length;
 
   return (
     <div className="vote-mode">
       <div className="vote-header">
-        <p>Swipe right for Yes, left for No</p>
+        <p>Swipe right for Yes, left for No (or use ← → arrow keys)</p>
         <div className="vote-progress">
           {progress} / {total} cards
         </div>
@@ -131,6 +177,7 @@ export function VoteMode() {
           card={currentCard}
           columnName={getColumnName(currentCard.columnId)}
           onVote={handleVote}
+          isEntering={isEntering}
         />
       </div>
 

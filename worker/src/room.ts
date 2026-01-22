@@ -36,7 +36,6 @@ interface User {
 export class RoomDO {
   private state: DurableObjectState;
   private room: RoomState | null = null;
-  private connections: Map<WebSocket, User> = new Map();
 
   constructor(state: DurableObjectState) {
     this.state = state;
@@ -44,6 +43,33 @@ export class RoomDO {
     this.state.blockConcurrencyWhile(async () => {
       this.room = (await this.state.storage.get<RoomState>("room")) ?? null;
     });
+  }
+
+  // Get user from WebSocket attachment (survives hibernation)
+  private getUser(ws: WebSocket): User | null {
+    try {
+      return ws.deserializeAttachment() as User | null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Set user on WebSocket attachment
+  private setUser(ws: WebSocket, user: User): void {
+    ws.serializeAttachment(user);
+  }
+
+  // Get all connected users
+  private getAllUsers(): User[] {
+    const webSockets = this.state.getWebSockets();
+    const users: User[] = [];
+    for (const ws of webSockets) {
+      const user = this.getUser(ws);
+      if (user) {
+        users.push(user);
+      }
+    }
+    return users;
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -95,8 +121,6 @@ export class RoomDO {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
 
-      this.state.acceptWebSocket(server);
-
       // Generate anonymous user
       const user: User = {
         id: generateId(16),
@@ -104,7 +128,12 @@ export class RoomDO {
         isOwner: false,
       };
 
-      this.connections.set(server, user);
+      // Accept WebSocket with hibernation API and attach user data
+      this.state.acceptWebSocket(server);
+      this.setUser(server, user);
+
+      // Get all users including the new one
+      const allUsers = this.getAllUsers();
 
       // Send initial state
       server.send(
@@ -121,7 +150,7 @@ export class RoomDO {
             createdAt: this.room.createdAt,
           },
           user,
-          users: Array.from(this.connections.values()),
+          users: allUsers,
         })
       );
 
@@ -173,6 +202,10 @@ export class RoomDO {
     }
 
     switch (type) {
+      case "ping":
+        ws.send(JSON.stringify({ type: "pong" }));
+        return;
+
       case "owner:add_column":
         await this.handleAddColumn(data.name as string);
         break;
@@ -357,7 +390,7 @@ export class RoomDO {
     }
 
     // Get the user who sent this message
-    const user = this.connections.get(ws);
+    const user = this.getUser(ws);
     if (!user) return;
 
     const card: Card = {
@@ -380,7 +413,7 @@ export class RoomDO {
     if (!this.room || !cardId) return;
 
     // Get the user who sent this message
-    const user = this.connections.get(ws);
+    const user = this.getUser(ws);
     if (!user) return;
 
     // Find the card
@@ -563,16 +596,24 @@ export class RoomDO {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
-    const user = this.connections.get(ws);
-    this.connections.delete(ws);
+    const user = this.getUser(ws);
 
     if (user) {
-      this.broadcast(JSON.stringify({ type: "user_left", userId: user.id }));
+      this.broadcast(
+        JSON.stringify({ type: "user_left", userId: user.id }),
+        ws
+      );
     }
   }
 
+  async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
+    console.error("WebSocket error:", error);
+    // The close handler will be called after this
+  }
+
   private broadcast(message: string, exclude?: WebSocket): void {
-    for (const [ws] of this.connections) {
+    const webSockets = this.state.getWebSockets();
+    for (const ws of webSockets) {
       if (ws !== exclude) {
         try {
           ws.send(message);

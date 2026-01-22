@@ -138,4 +138,48 @@ test.describe("Vote Mode", () => {
       page.locator(".room-mode-badge").getByText("Discuss")
     ).toBeVisible();
   });
+
+  test("can vote yes using right arrow key", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Arrow Right Test");
+
+    // Should start at 0
+    await expect(page.getByText(/0 \/ \d+ cards/)).toBeVisible();
+
+    // Press right arrow to vote yes
+    await page.keyboard.press("ArrowRight");
+
+    // Progress should update
+    await expect(page.getByText(/1 \/ \d+ cards/)).toBeVisible();
+  });
+
+  test("can vote no using left arrow key", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Arrow Left Test");
+
+    // Should start at 0
+    await expect(page.getByText(/0 \/ \d+ cards/)).toBeVisible();
+
+    // Press left arrow to vote no
+    await page.keyboard.press("ArrowLeft");
+
+    // Progress should update
+    await expect(page.getByText(/1 \/ \d+ cards/)).toBeVisible();
+  });
+
+  test("can complete voting using only arrow keys", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Arrow Keys Test");
+
+    // Vote on all cards using arrow keys (we have 2 cards)
+    await page.keyboard.press("ArrowRight"); // Yes on first card
+    await page.keyboard.press("ArrowLeft"); // No on second card
+
+    // Should show voting complete message
+    await expect(page.getByText("Voting Complete!")).toBeVisible();
+  });
+
+  test("vote mode header mentions arrow keys", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Header Test");
+
+    // Header should mention arrow keys
+    await expect(page.getByText(/arrow keys/i)).toBeVisible();
+  });
 });
