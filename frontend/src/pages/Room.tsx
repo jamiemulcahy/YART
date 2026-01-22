@@ -4,6 +4,9 @@ import { RoomHeader } from "../components/RoomHeader";
 import { EditMode } from "../components/EditMode";
 import { PublishMode } from "../components/PublishMode";
 import { GroupMode } from "../components/GroupMode";
+import { VoteMode } from "../components/VoteMode";
+import { FocusMode } from "../components/FocusMode";
+import { OverviewMode } from "../components/OverviewMode";
 
 function RoomContent() {
   const { room, isLoading, isConnected, error } = useRoom();
@@ -48,21 +51,9 @@ function RoomContent() {
         {isConnected && room.mode === "edit" && <EditMode />}
         {isConnected && room.mode === "publish" && <PublishMode />}
         {isConnected && room.mode === "group" && <GroupMode />}
-        {isConnected && room.mode === "vote" && (
-          <div className="room-loading">
-            <p>Vote mode coming soon...</p>
-          </div>
-        )}
-        {isConnected && room.mode === "focus" && (
-          <div className="room-loading">
-            <p>Focus mode coming soon...</p>
-          </div>
-        )}
-        {isConnected && room.mode === "overview" && (
-          <div className="room-loading">
-            <p>Overview mode coming soon...</p>
-          </div>
-        )}
+        {isConnected && room.mode === "vote" && <VoteMode />}
+        {isConnected && room.mode === "focus" && <FocusMode />}
+        {isConnected && room.mode === "overview" && <OverviewMode />}
       </main>
     </>
   );

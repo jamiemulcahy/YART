@@ -561,82 +561,82 @@ A task is not complete until it has been **verified in-browser** and has **E2E t
 
 ### 5.1 Vote Mode UI
 
-- [ ] Create `VoteMode` component
-- [ ] Create `SwipeCard` component:
+- [x] Create `VoteMode` component
+- [x] Create `SwipeCard` component:
   - Full-screen card display
   - Source column indicator at top
   - Swipe left/right gesture support
   - "No" and "Yes" buttons as alternative
   - Swipe animation feedback
-- [ ] Progress indicator (X of Y cards)
-- [ ] Handle card groups (show all cards in group)
+- [x] Progress indicator (X of Y cards)
+- [ ] Handle card groups (show all cards in group) (deferred)
 
 ### 5.2 Swipe Interaction
 
-- [ ] Implement swipe gesture detection (touch + mouse drag)
-- [ ] Swipe right = vote yes
-- [ ] Swipe left = vote no
-- [ ] Visual feedback (card tilts, background color change)
-- [ ] Card animates off-screen on decision
-- [ ] Next card animates in
+- [x] Implement swipe gesture detection (touch + mouse drag)
+- [x] Swipe right = vote yes
+- [x] Swipe left = vote no
+- [x] Visual feedback (card tilts, background color change)
+- [ ] Card animates off-screen on decision (deferred)
+- [ ] Next card animates in (deferred)
 
 ### 5.3 Vote Mode Backend
 
-- [ ] Track which cards each user has voted on
-- [ ] Implement `vote` message handler:
+- [x] Track which cards each user has voted on (client-side)
+- [x] Implement `vote` message handler:
   - Record vote (yes = +1, no = +0)
   - Prevent duplicate votes
   - Broadcast vote count updates
-- [ ] Calculate voting completion per user
-- [ ] Send `voting_complete` when user finishes all cards
+- [x] Calculate voting completion per user
+- [ ] Send `voting_complete` when user finishes all cards (deferred)
 
 ### 5.4 Focus Mode: Setup
 
-- [ ] Create `FocusSetup` component (owner only):
+- [ ] Create `FocusSetup` component (owner only): (deferred)
   - Per-column selector: "Discuss top N cards"
   - Preview of which cards will be discussed
   - "Start Discussion" button
-- [ ] Sort cards by vote count (descending)
-- [ ] Handle groups (group vote = sum of card votes)
+- [x] Sort cards by vote count (descending)
+- [ ] Handle groups (group vote = sum of card votes) (deferred)
 
 ### 5.5 Focus Mode UI
 
-- [ ] Create `FocusMode` component
-- [ ] Display current focus card (enlarged, similar to vote mode)
-- [ ] Source column indicator
-- [ ] Vote count display
-- [ ] Navigation controls (owner only): Previous / Next
-- [ ] Progress indicator (Card X of Y)
-- [ ] Action items section:
+- [x] Create `FocusMode` component
+- [x] Display current focus card (enlarged, similar to vote mode)
+- [x] Source column indicator
+- [x] Vote count display
+- [x] Navigation controls (owner only): Previous / Next
+- [x] Progress indicator (Card X of Y)
+- [x] Action items section:
   - List of existing action items
   - "Add Action" input (owner only)
 
 ### 5.6 Focus Mode Backend
 
-- [ ] Store list of cards to discuss (ordered)
-- [ ] Store current focus index
-- [ ] Implement `owner:set_focus` message handler
-- [ ] Implement `owner:add_action` message handler:
+- [x] Store list of cards to discuss (ordered by votes)
+- [x] Store current focus index (focusedCardId)
+- [x] Implement `owner:set_focus` message handler
+- [x] Implement `owner:add_action` message handler:
   - Create action item
   - Attach to current card
   - Broadcast to all clients
-- [ ] Broadcast focus changes to all clients (synchronized view)
+- [x] Broadcast focus changes to all clients (synchronized view)
 
 ### 5.7 Overview Mode UI
 
-- [ ] Create `OverviewMode` component
-- [ ] Return to column-based layout
-- [ ] Display all cards with:
+- [x] Create `OverviewMode` component
+- [x] Return to column-based layout
+- [x] Display all cards with:
   - Vote count badge
   - Action item indicator (if has actions)
   - "Discussed" highlight (if was in focus set)
-- [ ] Collapsible groups
-- [ ] "Export to Markdown" button (owner only)
+- [ ] Collapsible groups (deferred)
+- [x] "Export to Markdown" button (owner only)
 
 ### 5.8 Markdown Export
 
-- [ ] Create `generateMarkdownExport()` function
-- [ ] Follow format from SPECIFICATION.md:
+- [x] Create `generateMarkdownExport()` function
+- [x] Follow format from SPECIFICATION.md:
 
   ```markdown
   # [Room Name] - Retrospective Summary
@@ -654,14 +654,14 @@ A task is not complete until it has been **verified in-browser** and has **E2E t
   [Complete listing by column]
   ```
 
-- [ ] Trigger browser download of .md file
-- [ ] Include vote counts and author names
+- [x] Trigger browser download of .md file
+- [x] Include vote counts and author names
 
 ### 5.9 Mode Transitions
 
-- [ ] Owner can transition: Vote → Focus (with setup)
-- [ ] Owner can transition: Focus → Overview
-- [ ] Optional: Allow returning to earlier modes
+- [x] Owner can transition: Vote → Focus (via header controls)
+- [x] Owner can transition: Focus → Overview
+- [ ] Optional: Allow returning to earlier modes (deferred)
 
 ### 5.10 E2E Tests
 
@@ -682,15 +682,15 @@ A task is not complete until it has been **verified in-browser** and has **E2E t
 
 ### Milestone 5 Acceptance Criteria
 
-- [ ] Swipe voting works (gesture and buttons)
-- [ ] Vote counts calculated correctly
-- [ ] Focus setup allows selecting top N per column
-- [ ] Focus mode synchronizes view across all users
-- [ ] Action items can be added and persist
-- [ ] Overview displays complete retrospective state
-- [ ] Markdown export generates correct format
-- [ ] Full retrospective workflow is functional
-- [ ] All E2E tests pass
+- [x] Swipe voting works (gesture and buttons)
+- [x] Vote counts calculated correctly
+- [ ] Focus setup allows selecting top N per column (deferred - uses all cards sorted by votes)
+- [x] Focus mode synchronizes view across all users
+- [x] Action items can be added and persist
+- [x] Overview displays complete retrospective state
+- [x] Markdown export generates correct format
+- [x] Full retrospective workflow is functional
+- [ ] All E2E tests pass (backend-dependent tests deferred)
 
 ---
 

@@ -15,6 +15,7 @@ interface UserContextValue {
   user: User | null;
   ownerKey: string | null;
   draftCards: DraftCard[];
+  votedCardIds: string[];
   setUser: (user: User | null) => void;
   setOwnerKey: (key: string | null, roomId?: string) => void;
   loadOwnerKey: (roomId: string) => string | null;
@@ -23,6 +24,8 @@ interface UserContextValue {
   deleteDraftCard: (id: string) => void;
   getDraftCardsForColumn: (columnId: string) => DraftCard[];
   clearDraftCards: () => void;
+  addVotedCard: (cardId: string) => void;
+  clearVotedCards: () => void;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -35,6 +38,7 @@ export function UserProvider({ children }: UserProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [ownerKey, setOwnerKeyState] = useState<string | null>(null);
   const [draftCards, setDraftCards] = useState<DraftCard[]>([]);
+  const [votedCardIds, setVotedCardIds] = useState<string[]>([]);
 
   const setOwnerKey = useCallback((key: string | null, roomId?: string) => {
     setOwnerKeyState(key);
@@ -102,6 +106,17 @@ export function UserProvider({ children }: UserProviderProps) {
     setDraftCards([]);
   }, []);
 
+  const addVotedCard = useCallback((cardId: string) => {
+    setVotedCardIds((prev) => {
+      if (prev.includes(cardId)) return prev;
+      return [...prev, cardId];
+    });
+  }, []);
+
+  const clearVotedCards = useCallback(() => {
+    setVotedCardIds([]);
+  }, []);
+
   // Update user.isOwner when ownerKey changes
   useEffect(() => {
     setUser((currentUser) => {
@@ -118,6 +133,7 @@ export function UserProvider({ children }: UserProviderProps) {
     user,
     ownerKey,
     draftCards,
+    votedCardIds,
     setUser,
     setOwnerKey,
     loadOwnerKey,
@@ -126,6 +142,8 @@ export function UserProvider({ children }: UserProviderProps) {
     deleteDraftCard,
     getDraftCardsForColumn,
     clearDraftCards,
+    addVotedCard,
+    clearVotedCards,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

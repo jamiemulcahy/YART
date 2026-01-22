@@ -23,6 +23,7 @@ interface RoomState {
   columns: Array<{ id: string; name: string; order: number }>;
   cards: Card[];
   groups: CardGroup[];
+  focusedCardId: string | null;
   createdAt: string;
 }
 
@@ -62,6 +63,7 @@ export class RoomDO {
         columns: [],
         cards: [],
         groups: [],
+        focusedCardId: null,
         createdAt: new Date().toISOString(),
       };
 
@@ -115,6 +117,7 @@ export class RoomDO {
             columns: this.room.columns,
             cards: this.room.cards,
             groups: this.room.groups,
+            focusedCardId: this.room.focusedCardId,
             createdAt: this.room.createdAt,
           },
           user,
@@ -219,6 +222,21 @@ export class RoomDO {
 
       case "ungroup_card":
         await this.handleUngroupCard(data.cardId as string);
+        break;
+
+      case "vote":
+        await this.handleVote(ws, data.cardId as string, data.vote as boolean);
+        break;
+
+      case "owner:set_focus":
+        await this.handleSetFocus(data.cardId as string | null);
+        break;
+
+      case "owner:add_action":
+        await this.handleAddAction(
+          data.cardId as string,
+          data.content as string
+        );
         break;
 
       default:
@@ -484,6 +502,64 @@ export class RoomDO {
 
     await this.state.storage.put("room", this.room);
     this.broadcast(JSON.stringify({ type: "card_ungrouped", cardId }));
+  }
+
+  private async handleVote(
+    _ws: WebSocket,
+    cardId: string,
+    vote: boolean
+  ): Promise<void> {
+    if (!this.room || !cardId) return;
+
+    const card = this.room.cards.find((c) => c.id === cardId);
+    if (!card) return;
+
+    // Increment votes if yes, do nothing if no
+    if (vote) {
+      card.votes += 1;
+    }
+
+    await this.state.storage.put("room", this.room);
+    this.broadcast(
+      JSON.stringify({
+        type: "vote_recorded",
+        cardId,
+        votes: card.votes,
+      })
+    );
+  }
+
+  private async handleSetFocus(cardId: string | null): Promise<void> {
+    if (!this.room) return;
+
+    // Validate card exists if cardId is provided
+    if (cardId !== null) {
+      const card = this.room.cards.find((c) => c.id === cardId);
+      if (!card) return;
+    }
+
+    this.room.focusedCardId = cardId;
+    await this.state.storage.put("room", this.room);
+    this.broadcast(JSON.stringify({ type: "focus_changed", cardId }));
+  }
+
+  private async handleAddAction(
+    cardId: string,
+    content: string
+  ): Promise<void> {
+    if (!this.room || !cardId || !content?.trim()) return;
+
+    const card = this.room.cards.find((c) => c.id === cardId);
+    if (!card) return;
+
+    const action = {
+      id: generateId(8),
+      content: content.trim(),
+    };
+
+    card.actionItems.push(action);
+    await this.state.storage.put("room", this.room);
+    this.broadcast(JSON.stringify({ type: "action_added", cardId, action }));
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {

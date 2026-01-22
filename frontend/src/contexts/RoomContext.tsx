@@ -74,6 +74,8 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           setRoom(message.room);
           setCards(message.room.cards || []);
           setGroups(message.room.groups || []);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setFocusedCardId((message.room as any).focusedCardId ?? null);
           setUser(message.user);
           setUsers(message.users);
           setIsLoading(false);
