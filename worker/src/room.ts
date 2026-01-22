@@ -20,7 +20,12 @@ interface RoomState {
   name: string;
   ownerKey: string;
   mode: "edit" | "publish" | "group" | "vote" | "focus" | "overview";
-  columns: Array<{ id: string; name: string; order: number }>;
+  columns: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    order: number;
+  }>;
   cards: Card[];
   groups: CardGroup[];
   focusedCardId: string | null;
@@ -215,7 +220,8 @@ export class RoomDO {
       case "owner:update_column":
         await this.handleUpdateColumn(
           data.columnId as string,
-          data.name as string
+          data.name as string,
+          data.description as string | undefined
         );
         break;
 
@@ -300,7 +306,8 @@ export class RoomDO {
 
   private async handleUpdateColumn(
     columnId: string,
-    name: string
+    name: string,
+    description?: string
   ): Promise<void> {
     if (!this.room || !columnId || !name?.trim()) return;
 
@@ -308,6 +315,7 @@ export class RoomDO {
     if (!column) return;
 
     column.name = name.trim();
+    column.description = description?.trim() || undefined;
     await this.state.storage.put("room", this.room);
 
     this.broadcast(JSON.stringify({ type: "column_updated", column }));

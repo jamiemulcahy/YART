@@ -22,7 +22,7 @@ import type { Column } from "../types";
 
 interface SortableColumnItemProps {
   column: Column;
-  onUpdate: (name: string) => void;
+  onUpdate: (name: string, description?: string) => void;
   onDelete: () => void;
 }
 
@@ -32,6 +32,8 @@ function SortableColumnItem({
   onDelete,
 }: SortableColumnItemProps) {
   const [name, setName] = useState(column.name);
+  const [description, setDescription] = useState(column.description || "");
+  const [showDescription, setShowDescription] = useState(!!column.description);
 
   const {
     attributes,
@@ -48,11 +50,21 @@ function SortableColumnItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const handleBlur = () => {
-    if (name.trim() && name.trim() !== column.name) {
-      onUpdate(name.trim());
-    } else {
+  const handleNameBlur = () => {
+    if (
+      name.trim() &&
+      (name.trim() !== column.name ||
+        description !== (column.description || ""))
+    ) {
+      onUpdate(name.trim(), description || undefined);
+    } else if (!name.trim()) {
       setName(column.name);
+    }
+  };
+
+  const handleDescriptionBlur = () => {
+    if (description !== (column.description || "")) {
+      onUpdate(name.trim(), description || undefined);
     }
   };
 
@@ -61,6 +73,7 @@ function SortableColumnItem({
       (e.target as HTMLInputElement).blur();
     } else if (e.key === "Escape") {
       setName(column.name);
+      setDescription(column.description || "");
       (e.target as HTMLInputElement).blur();
     }
   };
@@ -75,15 +88,37 @@ function SortableColumnItem({
       >
         ⋮⋮
       </span>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-        placeholder="Column name"
-        aria-label={`Column name: ${column.name}`}
-      />
+      <div className="column-item-fields">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={handleNameBlur}
+          onKeyDown={handleKeyDown}
+          placeholder="Column name"
+          aria-label={`Column name: ${column.name}`}
+        />
+        {showDescription ? (
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleDescriptionBlur}
+            onKeyDown={handleKeyDown}
+            placeholder="Description (optional)"
+            aria-label={`Description for ${column.name}`}
+            className="column-description-input"
+          />
+        ) : (
+          <button
+            type="button"
+            className="add-description-btn"
+            onClick={() => setShowDescription(true)}
+          >
+            + Add description
+          </button>
+        )}
+      </div>
       <button
         className="delete-btn"
         onClick={onDelete}
@@ -217,7 +252,9 @@ export function EditMode() {
                 <SortableColumnItem
                   key={column.id}
                   column={column}
-                  onUpdate={(name) => updateColumn(column.id, name)}
+                  onUpdate={(name, description) =>
+                    updateColumn(column.id, name, description)
+                  }
                   onDelete={() => deleteColumn(column.id)}
                 />
               ))}

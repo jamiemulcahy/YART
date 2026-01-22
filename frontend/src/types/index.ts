@@ -20,6 +20,7 @@ export interface Room {
 export interface Column {
   id: string;
   name: string;
+  description?: string;
   order: number;
 }
 
@@ -73,6 +74,7 @@ export type ClientMessage =
       ownerKey: string;
       columnId: string;
       name: string;
+      description?: string;
     }
   | { type: "owner:delete_column"; ownerKey: string; columnId: string }
   | { type: "owner:reorder_columns"; ownerKey: string; columnIds: string[] }

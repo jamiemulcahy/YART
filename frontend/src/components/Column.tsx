@@ -24,7 +24,20 @@ export function Column({
   return (
     <div className="column">
       <div className="column-header">
-        <h3>{column.name}</h3>
+        <div className="column-title-container">
+          <h3 className="column-title" title={column.name}>
+            {column.name}
+          </h3>
+          {column.description && (
+            <span
+              className="column-info-icon"
+              title={column.description}
+              aria-label={`Description: ${column.description}`}
+            >
+              &#x24D8;
+            </span>
+          )}
+        </div>
         <span className="card-count">
           {columnCards.length} {columnCards.length === 1 ? "card" : "cards"}
         </span>

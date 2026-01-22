@@ -595,6 +595,35 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+.column-item-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.column-description-input {
+  font-size: 0.8125rem !important;
+  padding: 0.375rem 0.75rem !important;
+  color: #888 !important;
+}
+
+.add-description-btn {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  color: #666;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  transition: color 0.2s;
+}
+
+.add-description-btn:hover {
+  color: #667eea;
+}
+
 .add-column-form {
   display: flex;
   gap: 0.75rem;
@@ -815,15 +844,41 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.column-header h3 {
+.column-title-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.column-header h3,
+.column-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.column-info-icon {
+  font-size: 0.875rem;
+  color: #666;
+  cursor: help;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.column-info-icon:hover {
+  color: #888;
 }
 
 .card-count {
   font-size: 0.75rem;
   color: #888;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
 }
 
 .column-cards {

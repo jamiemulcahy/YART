@@ -37,7 +37,7 @@ interface RoomContextValue {
   // Owner actions
   setMode: (mode: RoomMode) => void;
   addColumn: (name: string) => void;
-  updateColumn: (columnId: string, name: string) => void;
+  updateColumn: (columnId: string, name: string, description?: string) => void;
   deleteColumn: (columnId: string) => void;
   reorderColumns: (columnIds: string[]) => void;
   setFocus: (cardId: string | null) => void;
@@ -334,9 +334,15 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
   );
 
   const updateColumn = useCallback(
-    (columnId: string, name: string) => {
+    (columnId: string, name: string, description?: string) => {
       if (!ownerKey) return;
-      sendMessage({ type: "owner:update_column", ownerKey, columnId, name });
+      sendMessage({
+        type: "owner:update_column",
+        ownerKey,
+        columnId,
+        name,
+        description,
+      });
     },
     [sendMessage, ownerKey]
   );
