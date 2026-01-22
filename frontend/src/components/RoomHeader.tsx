@@ -2,7 +2,46 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useRoom } from "../contexts/RoomContext";
 import { useUser } from "../contexts/UserContext";
-import type { RoomMode } from "../types";
+import type { RoomMode, User } from "../types";
+
+interface ParticipantsModalProps {
+  users: User[];
+  onClose: () => void;
+}
+
+function ParticipantsModal({ users, onClose }: ParticipantsModalProps) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="participants-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-labelledby="participants-title"
+      >
+        <div className="participants-modal-header">
+          <h2 id="participants-title">Participants ({users.length})</h2>
+          <button
+            className="modal-close-btn"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <ul className="participants-list">
+          {users.map((user) => (
+            <li key={user.id} className="participant-item">
+              <span className="participant-name">{user.name}</span>
+              {user.isOwner && (
+                <span className="participant-badge owner">Owner</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 const MODE_LABELS: Record<RoomMode, string> = {
   edit: "Setup",
@@ -34,6 +73,7 @@ export function RoomHeader() {
   const { room, users, setMode } = useRoom();
   const { ownerKey } = useUser();
   const [copied, setCopied] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
 
   if (!room) return null;
 
@@ -72,9 +112,13 @@ export function RoomHeader() {
         </button>
       </div>
       <div className="room-header-right">
-        <span className="user-count">
+        <button
+          className="user-count-btn"
+          onClick={() => setShowParticipants(true)}
+          aria-label="View participants"
+        >
           {users.length} {users.length === 1 ? "participant" : "participants"}
-        </span>
+        </button>
         {isOwner && nextMode && (
           <div className="owner-controls">
             <button className="submit-btn" onClick={handleModeTransition}>
@@ -83,6 +127,12 @@ export function RoomHeader() {
           </div>
         )}
       </div>
+      {showParticipants && (
+        <ParticipantsModal
+          users={users}
+          onClose={() => setShowParticipants(false)}
+        />
+      )}
     </header>
   );
 }
