@@ -76,92 +76,136 @@ async function setupRoomForFocus(page: Page, roomName: string) {
 }
 
 test.describe("Focus Mode", () => {
-  test("focus mode displays current card", async ({ page }) => {
-    await setupRoomForFocus(page, "Focus Display Test");
+  test("focus mode displays column view with cards", async ({ page }) => {
+    await setupRoomForFocus(page, "Focus Column View Test");
 
-    // Should show a focused card
-    await expect(page.locator(".focus-card")).toBeVisible();
+    // Should show the column layout
+    await expect(page.locator(".columns-container")).toBeVisible();
 
-    // Should show card content
-    await expect(page.getByText(/Topic [ABC] for discussion/)).toBeVisible();
+    // Should show the Discussion Items column
+    await expect(
+      page.getByRole("heading", { name: "Discussion Items" })
+    ).toBeVisible();
+
+    // Should show cards in the column view
+    await expect(page.locator(".focus-item")).toHaveCount(3);
+
+    // Cards should be visible with their content
+    await expect(page.getByText("Topic A for discussion")).toBeVisible();
+    await expect(page.getByText("Topic B for discussion")).toBeVisible();
+    await expect(page.getByText("Topic C for discussion")).toBeVisible();
   });
 
-  test("focus mode shows progress indicator", async ({ page }) => {
-    await setupRoomForFocus(page, "Focus Progress Test");
+  test("focus mode shows vote badges on cards", async ({ page }) => {
+    await setupRoomForFocus(page, "Focus Votes Display Test");
 
-    // Should show progress (e.g., "Card 1 of 3")
-    await expect(page.getByText(/Card \d+ of \d+/)).toBeVisible();
+    // Each card should have a vote badge
+    const voteBadges = page.locator(".focus-item-votes");
+    await expect(voteBadges).toHaveCount(3);
+
+    // Vote badges should show vote count (0 initially)
+    await expect(voteBadges.first()).toHaveText("0");
   });
 
-  test("focus mode shows vote count", async ({ page }) => {
-    await setupRoomForFocus(page, "Focus Votes Test");
+  test("owner can click card to open discussion modal", async ({ page }) => {
+    await setupRoomForFocus(page, "Focus Modal Test");
 
-    // Should show votes indicator
-    await expect(page.getByText(/\d+ votes/)).toBeVisible();
+    // Click on the first card
+    const firstCard = page.locator(".focus-item").first();
+    await firstCard.click();
+
+    // Modal should appear
+    await expect(page.locator(".focus-modal-overlay")).toBeVisible();
+    await expect(page.locator(".focus-modal")).toBeVisible();
+
+    // Modal should show the column name
+    await expect(page.locator(".focus-modal-column")).toHaveText(
+      "Discussion Items"
+    );
+
+    // Modal should show the card content
+    await expect(page.locator(".focus-modal-card-text").first()).toBeVisible();
   });
 
-  test("owner can navigate between cards", async ({ page }) => {
-    await setupRoomForFocus(page, "Focus Navigation Test");
+  test("owner can close discussion modal", async ({ page }) => {
+    await setupRoomForFocus(page, "Focus Modal Close Test");
 
-    // Wait for focus mode to fully load with navigation buttons
-    await page.waitForTimeout(500);
+    // Click on a card to open modal
+    await page.locator(".focus-item").first().click();
+    await expect(page.locator(".focus-modal")).toBeVisible();
 
-    // Should see navigation controls (owner has these)
-    const nextButton = page.getByRole("button", { name: "Next" });
-    const prevButton = page.getByRole("button", { name: "Previous" });
+    // Click close button
+    await page.getByRole("button", { name: "Close" }).click();
 
-    // Check if navigation buttons exist (owner-only feature)
-    if ((await nextButton.count()) > 0) {
-      // Previous should be disabled on first card
-      await expect(prevButton).toBeDisabled();
-
-      // Owner can navigate to next card
-      await nextButton.click();
-      // Progress should update
-      await expect(page.getByText("Card 2 of 3")).toBeVisible();
-
-      // Now Previous should be enabled
-      await expect(prevButton).toBeEnabled();
-
-      // Can go back
-      await prevButton.click();
-      await expect(page.getByText("Card 1 of 3")).toBeVisible();
-    } else {
-      // If navigation buttons don't appear, the owner detection may have an issue
-      // At least verify we're in focus mode with cards
-      await expect(page.locator(".focus-card")).toBeVisible();
-    }
+    // Modal should disappear
+    await expect(page.locator(".focus-modal")).not.toBeVisible();
   });
 
-  test("owner can add action items", async ({ page }) => {
+  test("owner can add action items in modal", async ({ page }) => {
     await setupRoomForFocus(page, "Action Items Test");
 
-    // Wait for focus mode to fully load
-    await page.waitForTimeout(500);
+    // Open modal for a card
+    await page.locator(".focus-item").first().click();
+    await expect(page.locator(".focus-modal")).toBeVisible();
 
-    // Find action item input (owner-only feature)
+    // Should show empty state initially
+    await expect(page.getByText("No action items yet.")).toBeVisible();
+
+    // Find action item input
     const actionInput = page.getByPlaceholder("Add an action item...");
+    await expect(actionInput).toBeVisible();
 
-    // Check if the owner features are available
-    if ((await actionInput.count()) > 0) {
-      await actionInput.fill("Follow up with team about this");
-      await page.getByRole("button", { name: "Add" }).click();
+    // Add an action item
+    await actionInput.fill("Follow up with team about this");
+    await page.getByRole("button", { name: "Add" }).click();
 
-      // Action item should appear
-      await expect(
-        page.getByText("Follow up with team about this")
-      ).toBeVisible();
-    } else {
-      // Owner feature not available - verify we're at least in focus mode
-      await expect(page.locator(".focus-card")).toBeVisible();
-    }
+    // Action item should appear in the list
+    await expect(
+      page.getByText("Follow up with team about this")
+    ).toBeVisible();
+
+    // Empty state should be gone
+    await expect(page.getByText("No action items yet.")).not.toBeVisible();
   });
 
-  test("action items section shows empty state initially", async ({ page }) => {
-    await setupRoomForFocus(page, "Empty Actions Test");
+  test("can add multiple action items", async ({ page }) => {
+    await setupRoomForFocus(page, "Multiple Actions Test");
 
-    // Should show empty state message
-    await expect(page.getByText("No action items yet.")).toBeVisible();
+    // Open modal
+    await page.locator(".focus-item").first().click();
+
+    // Add first action item
+    const actionInput = page.getByPlaceholder("Add an action item...");
+    await actionInput.fill("First action item");
+    await page.getByRole("button", { name: "Add" }).click();
+
+    // Add second action item
+    await actionInput.fill("Second action item");
+    await page.getByRole("button", { name: "Add" }).click();
+
+    // Both should appear
+    await expect(page.getByText("First action item")).toBeVisible();
+    await expect(page.getByText("Second action item")).toBeVisible();
+
+    // Action items list should have 2 items
+    await expect(page.locator(".action-items-list li")).toHaveCount(2);
+  });
+
+  test("focus mode shows instruction text for owner", async ({ page }) => {
+    await setupRoomForFocus(page, "Focus Instructions Test");
+
+    // Owner should see click instruction
+    await expect(
+      page.getByText("Click on a card or group to start discussing it.")
+    ).toBeVisible();
+  });
+
+  test("cards are clickable for owner", async ({ page }) => {
+    await setupRoomForFocus(page, "Cards Clickable Test");
+
+    // Cards should have clickable styling
+    const focusItems = page.locator(".focus-item.clickable");
+    await expect(focusItems).toHaveCount(3);
   });
 
   test("owner can transition from focus to overview mode", async ({ page }) => {
@@ -178,5 +222,16 @@ test.describe("Focus Mode", () => {
     await expect(
       page.locator(".room-mode-badge").getByText("Summary")
     ).toBeVisible();
+  });
+
+  test("modal shows votes count", async ({ page }) => {
+    await setupRoomForFocus(page, "Modal Votes Test");
+
+    // Open modal
+    await page.locator(".focus-item").first().click();
+
+    // Modal should show votes
+    await expect(page.locator(".focus-modal-votes")).toBeVisible();
+    await expect(page.locator(".focus-modal-votes")).toContainText("votes");
   });
 });
