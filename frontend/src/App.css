@@ -297,6 +297,9 @@
   text-transform: uppercase;
   background: rgba(102, 126, 234, 0.2);
   color: #667eea;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* YART Logo */
@@ -324,9 +327,12 @@
 .role-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 
 .role-badge.owner {
@@ -687,17 +693,19 @@
 /* Publish Mode */
 .publish-mode,
 .group-mode {
-  flex: 1;
+  flex: 1 1 0;
   padding: 1rem 1.5rem 0.5rem 1.5rem;
-  overflow-x: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-height: calc(100vh - 60px);
 }
 
 .publish-mode-header,
 .group-mode-header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
 }
 
 .publish-mode-header p,
@@ -709,10 +717,12 @@
 .columns-container {
   display: flex;
   gap: 1.5rem;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow-x: auto;
-  padding-bottom: 1rem;
+  overflow-y: hidden;
+  padding-bottom: 0.5rem;
+  align-items: stretch;
 }
 
 /* Responsive column widths */
