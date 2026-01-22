@@ -27,7 +27,8 @@
         "bradlc.vscode-tailwindcss",
         "ms-playwright.playwright",
         "vitest.explorer",
-        "cloudflare.cloudflare-workers-bindings-extension"
+        "cloudflare.cloudflare-workers-bindings-extension",
+        "anthropic.claude-code"
       ],
       "settings": {
         "editor.defaultFormatter": "esbenp.prettier-vscode",
