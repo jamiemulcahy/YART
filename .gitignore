@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test outputs
+coverage/
+playwright-report/
+test-results/
+
+# Cloudflare
+.wrangler/
+.dev.vars
+
+# Claude Code local state
+.claude/

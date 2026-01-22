@@ -1,0 +1,14 @@
+name = "yart-worker"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[dev]
+port = 8787
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "RoomDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RoomDO"]
