@@ -528,12 +528,12 @@ A task is not complete until it has been **verified in-browser** and has **E2E t
 ### 4.10 E2E Tests
 
 - [x] Test: User can create draft card
-- [ ] Test: User can edit draft card (UI testing deferred)
+- [x] Test: User can edit draft card (implemented)
 - [x] Test: User can delete draft card
 - [x] Test: User can publish draft card
 - [ ] Test: Published card appears for all users (multi-user testing deferred)
 - [ ] Test: User can only delete own cards (multi-user testing deferred)
-- [ ] Test: Cards show author indicator (implicit in publish mode)
+- [x] Test: Cards show author indicator (implemented)
 - [x] Test: Owner can transition to Group mode
 - [ ] Test: User can drag card onto another to create group (drag-and-drop deferred)
 - [ ] Test: User can drag card into existing group (drag-and-drop deferred)
