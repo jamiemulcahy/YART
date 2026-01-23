@@ -504,6 +504,17 @@
   color: #667eea;
 }
 
+.participant-item.current-user {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.you-badge {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: #667eea;
+  font-weight: 600;
+}
+
 @media (prefers-color-scheme: light) {
   .participants-modal {
     background: #fff;

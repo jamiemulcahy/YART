@@ -6,10 +6,15 @@ import type { RoomMode, User } from "../types";
 
 interface ParticipantsModalProps {
   users: User[];
+  currentUserId: string | undefined;
   onClose: () => void;
 }
 
-function ParticipantsModal({ users, onClose }: ParticipantsModalProps) {
+function ParticipantsModal({
+  users,
+  currentUserId,
+  onClose,
+}: ParticipantsModalProps) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -30,8 +35,14 @@ function ParticipantsModal({ users, onClose }: ParticipantsModalProps) {
         </div>
         <ul className="participants-list">
           {users.map((user) => (
-            <li key={user.id} className="participant-item">
+            <li
+              key={user.id}
+              className={`participant-item${user.id === currentUserId ? " current-user" : ""}`}
+            >
               <span className="participant-name">{user.name}</span>
+              {user.id === currentUserId && (
+                <span className="you-badge">(You)</span>
+              )}
               {user.isOwner && (
                 <span className="participant-badge owner">Owner</span>
               )}
@@ -70,7 +81,7 @@ const NEXT_MODE_LABELS: Partial<Record<RoomMode, string>> = {
 
 export function RoomHeader() {
   const { room, users, setMode } = useRoom();
-  const { ownerKey } = useUser();
+  const { user, ownerKey } = useUser();
   const [copied, setCopied] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
 
@@ -145,6 +156,7 @@ export function RoomHeader() {
       {showParticipants && (
         <ParticipantsModal
           users={users}
+          currentUserId={user?.id}
           onClose={() => setShowParticipants(false)}
         />
       )}
