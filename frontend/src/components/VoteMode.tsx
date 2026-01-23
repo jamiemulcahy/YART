@@ -166,20 +166,22 @@ export function VoteMode() {
     <div className="vote-mode">
       <div className="vote-header">
         <p>Swipe right for Yes, left for No (or use arrow keys)</p>
-        <div className="vote-progress">
-          {progress} / {total} cards
-        </div>
       </div>
 
       <div className="vote-main-content">
-        <div className="swipe-container">
-          <SwipeCard
-            key={currentCard.id}
-            card={currentCard}
-            columnName={getColumnName(currentCard.columnId)}
-            onVote={handleVote}
-            isEntering={isEntering}
-          />
+        <div className="swipe-area">
+          <div className="swipe-container">
+            <SwipeCard
+              key={currentCard.id}
+              card={currentCard}
+              columnName={getColumnName(currentCard.columnId)}
+              onVote={handleVote}
+              isEntering={isEntering}
+            />
+          </div>
+          <div className="vote-progress">
+            {progress} / {total} cards
+          </div>
         </div>
 
         <div className="vote-progress-table">
