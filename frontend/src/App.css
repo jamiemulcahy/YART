@@ -1999,6 +1999,7 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
+  overflow: hidden;
 }
 
 .overview-card.discussed {
@@ -2009,6 +2010,8 @@
 .overview-card-content {
   margin-bottom: 0.75rem;
   line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .overview-card-meta {
