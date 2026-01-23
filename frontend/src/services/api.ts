@@ -34,8 +34,12 @@ export async function checkRoom(roomId: string): Promise<CheckRoomResponse> {
   return response.json();
 }
 
-export function getWebSocketUrl(roomId: string): string {
+export function getWebSocketUrl(roomId: string, userId?: string): string {
   const wsProtocol = API_URL.startsWith("https") ? "wss" : "ws";
   const wsHost = API_URL.replace(/^https?:\/\//, "");
-  return `${wsProtocol}://${wsHost}/api/rooms/${roomId}/ws`;
+  const baseUrl = `${wsProtocol}://${wsHost}/api/rooms/${roomId}/ws`;
+  if (userId) {
+    return `${baseUrl}?userId=${encodeURIComponent(userId)}`;
+  }
+  return baseUrl;
 }

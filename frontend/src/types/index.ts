@@ -61,7 +61,7 @@ export interface DraftCard {
 
 // WebSocket message types (client → server)
 export type ClientMessage =
-  | { type: "join"; userName?: string }
+  | { type: "join"; userName?: string; userId?: string }
   | { type: "publish_card"; columnId: string; content: string }
   | { type: "delete_card"; cardId: string }
   | { type: "group_cards"; cardIds: string[] }

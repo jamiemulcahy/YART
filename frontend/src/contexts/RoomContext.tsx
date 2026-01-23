@@ -53,7 +53,7 @@ interface RoomProviderProps {
 }
 
 export function RoomProvider({ roomId, children }: RoomProviderProps) {
-  const { setUser, ownerKey, loadOwnerKey } = useUser();
+  const { setUser, ownerKey, loadOwnerKey, saveUserId, loadUserId } = useUser();
 
   const [room, setRoom] = useState<Room | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -63,7 +63,8 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load stored owner key for this room
+  // Load stored user ID and owner key for this room
+  const [storedUserId] = useState(() => loadUserId(roomId));
   useEffect(() => {
     loadOwnerKey(roomId);
   }, [roomId, loadOwnerKey]);
@@ -81,6 +82,8 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           setUsers(message.users);
           setIsLoading(false);
           setError(null);
+          // Save userId to localStorage for persistence on refresh
+          saveUserId(roomId, message.user.id);
           break;
 
         case "user_joined":
@@ -287,6 +290,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     onConnect: handleConnect,
     onDisconnect: handleDisconnect,
     onError: handleError,
+    userId: storedUserId ?? undefined,
   });
 
   // Helper to send messages

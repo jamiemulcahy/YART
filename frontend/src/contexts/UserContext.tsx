@@ -10,6 +10,7 @@ import type { User, DraftCard } from "../types";
 import { generateId } from "../utils";
 
 const OWNER_KEY_STORAGE_PREFIX = "yart_owner_key_";
+const USER_ID_STORAGE_PREFIX = "yart_user_id_";
 
 interface UserContextValue {
   user: User | null;
@@ -19,6 +20,8 @@ interface UserContextValue {
   setUser: (user: User | null) => void;
   setOwnerKey: (key: string | null, roomId?: string) => void;
   loadOwnerKey: (roomId: string) => string | null;
+  saveUserId: (roomId: string, userId: string) => void;
+  loadUserId: (roomId: string) => string | null;
   addDraftCard: (columnId: string, content: string) => string;
   updateDraftCard: (id: string, content: string) => void;
   deleteDraftCard: (id: string) => void;
@@ -73,6 +76,23 @@ export function UserProvider({ children }: UserProviderProps) {
       // localStorage might be unavailable
     }
     return null;
+  }, []);
+
+  const saveUserId = useCallback((roomId: string, userId: string) => {
+    try {
+      localStorage.setItem(`${USER_ID_STORAGE_PREFIX}${roomId}`, userId);
+    } catch {
+      // localStorage might be unavailable
+    }
+  }, []);
+
+  const loadUserId = useCallback((roomId: string): string | null => {
+    try {
+      return localStorage.getItem(`${USER_ID_STORAGE_PREFIX}${roomId}`);
+    } catch {
+      // localStorage might be unavailable
+      return null;
+    }
   }, []);
 
   const addDraftCard = useCallback(
@@ -137,6 +157,8 @@ export function UserProvider({ children }: UserProviderProps) {
     setUser,
     setOwnerKey,
     loadOwnerKey,
+    saveUserId,
+    loadUserId,
     addDraftCard,
     updateDraftCard,
     deleteDraftCard,

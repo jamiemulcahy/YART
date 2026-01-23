@@ -7,6 +7,7 @@ interface UseWebSocketOptions {
   onConnect?: () => void;
   onDisconnect?: () => void;
   onError?: (error: Event) => void;
+  userId?: string;
 }
 
 interface UseWebSocketReturn {
@@ -24,7 +25,7 @@ export function useWebSocket(
   roomId: string | null,
   options: UseWebSocketOptions = {}
 ): UseWebSocketReturn {
-  const { onMessage, onConnect, onDisconnect, onError } = options;
+  const { onMessage, onConnect, onDisconnect, onError, userId } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<ServerMessage | null>(null);
@@ -65,6 +66,10 @@ export function useWebSocket(
     }
   }, []);
 
+  // Store userId in ref to use during reconnection
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
+
   const connect = useCallback(
     (targetRoomId: string) => {
       if (!targetRoomId || isCleaningUp.current) {
@@ -81,7 +86,7 @@ export function useWebSocket(
         return;
       }
 
-      const url = getWebSocketUrl(targetRoomId);
+      const url = getWebSocketUrl(targetRoomId, userIdRef.current);
       const ws = new WebSocket(url);
 
       ws.onopen = () => {

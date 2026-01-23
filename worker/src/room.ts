@@ -127,13 +127,60 @@ export class RoomDO {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
 
-      // Generate anonymous user
-      const user: User = {
-        id: generateId(16),
-        name: generateAnonymousName(),
-        isOwner: false,
-        votesCount: 0,
-      };
+      // Check for userId in URL for identity restoration
+      const requestedUserId = url.searchParams.get("userId");
+
+      // Try to restore user identity from stored userId
+      let user: User;
+
+      if (requestedUserId) {
+        // Check if this userId is already connected (prevent duplicates)
+        const existingConnections = this.state.getWebSockets();
+        const alreadyConnected = existingConnections.some((ws) => {
+          const existingUser = this.getUser(ws);
+          return existingUser?.id === requestedUserId;
+        });
+
+        if (!alreadyConnected) {
+          // Check if this userId authored any cards
+          const userCard = this.room.cards.find(
+            (c) => c.authorId === requestedUserId
+          );
+          if (userCard) {
+            // Restore user with their previous name
+            user = {
+              id: requestedUserId,
+              name: userCard.authorName,
+              isOwner: false,
+              votesCount: 0,
+            };
+          } else {
+            // User ID exists but no cards - create new user with requested ID
+            user = {
+              id: requestedUserId,
+              name: generateAnonymousName(),
+              isOwner: false,
+              votesCount: 0,
+            };
+          }
+        } else {
+          // User already connected, create new identity
+          user = {
+            id: generateId(16),
+            name: generateAnonymousName(),
+            isOwner: false,
+            votesCount: 0,
+          };
+        }
+      } else {
+        // No userId provided, generate new anonymous user
+        user = {
+          id: generateId(16),
+          name: generateAnonymousName(),
+          isOwner: false,
+          votesCount: 0,
+        };
+      }
 
       // Accept WebSocket with hibernation API and attach user data
       this.state.acceptWebSocket(server);
