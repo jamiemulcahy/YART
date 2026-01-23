@@ -1388,23 +1388,14 @@
 }
 
 /* Vote Progress Table */
-.vote-main-content {
-  display: flex;
-  flex: 1;
-  gap: 2rem;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 900px;
-}
-
 .vote-progress-table {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 1rem;
-  min-width: 250px;
-  max-height: 400px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 200px;
   overflow-y: auto;
 }
 
@@ -1466,13 +1457,8 @@
 }
 
 @media (max-width: 768px) {
-  .vote-main-content {
-    flex-direction: column;
-  }
-
   .vote-progress-table {
-    width: 100%;
-    max-width: 400px;
+    max-width: 100%;
   }
 }
 
