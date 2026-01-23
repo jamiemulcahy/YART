@@ -161,7 +161,7 @@ const PREV_MODE_LABELS: Partial<Record<RoomMode, string>> = {
   overview: "Back to Discussion",
 };
 
-const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || "anthropics/yart";
+const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || "githy/yart";
 const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
 function GitHubIcon() {

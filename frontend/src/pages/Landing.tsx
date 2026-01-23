@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createRoom, checkRoom } from "../services/api";
 import { useUser } from "../contexts";
 
-const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || "anthropics/yart";
+const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || "githy/yart";
 const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
 function GitHubIcon() {
