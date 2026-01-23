@@ -8,6 +8,7 @@
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:worker": "pnpm --filter worker dev",
     "build": "pnpm --filter frontend build",
+    "deploy": "cd worker && npx wrangler deploy",
     "test": "pnpm --filter frontend test",
     "test:e2e": "pnpm --filter frontend test:e2e",
     "lint": "pnpm -r lint",
