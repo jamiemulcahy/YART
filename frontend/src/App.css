@@ -1602,6 +1602,9 @@
   border-radius: 8px;
   position: relative;
   transition: border-color 0.2s, background 0.2s;
+  break-inside: avoid;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
 }
 
 .focus-item.clickable {
