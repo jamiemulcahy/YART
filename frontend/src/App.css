@@ -1036,10 +1036,22 @@
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  column-count: 1;
+  column-gap: 0.75rem;
   min-height: 100px;
+}
+
+/* Multi-column masonry layout for wider columns */
+@media (min-width: 900px) {
+  .column-cards {
+    column-count: 2;
+  }
+}
+
+@media (min-width: 1400px) {
+  .column-cards {
+    column-count: 3;
+  }
 }
 
 .no-cards {
@@ -1056,6 +1068,8 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   transition: border-color 0.2s;
+  break-inside: avoid;
+  margin-bottom: 0.75rem;
 }
 
 .card-item.own-card {
@@ -2175,9 +2189,9 @@
   border: 2px dashed rgba(102, 126, 234, 0.3);
   border-radius: 12px;
   padding: 0.75rem;
-  min-width: 200px;
-  max-width: 300px;
   transition: border-color 0.2s, background 0.2s;
+  break-inside: avoid;
+  margin-bottom: 0.75rem;
 }
 
 .group-stack.drop-target {
@@ -2262,6 +2276,8 @@
   cursor: grab;
   transition: border-color 0.2s, background 0.2s, transform 0.2s;
   touch-action: none;
+  break-inside: avoid;
+  margin-bottom: 0.75rem;
 }
 
 .group-card:hover {
