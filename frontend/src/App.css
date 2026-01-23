@@ -998,6 +998,7 @@
   max-height: 300px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .draft-area-header {
@@ -1042,6 +1043,7 @@
   gap: 0.75rem;
   margin-bottom: 1rem;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
   min-height: 0;
 }
@@ -1063,6 +1065,8 @@
   font-family: inherit;
   resize: vertical;
   min-height: 60px;
+  box-sizing: border-box;
+  word-break: break-word;
 }
 
 .draft-card-item textarea:focus {
@@ -1126,6 +1130,8 @@
   font-family: inherit;
   resize: vertical;
   min-height: 60px;
+  box-sizing: border-box;
+  word-break: break-word;
 }
 
 .add-draft-form textarea:focus {
