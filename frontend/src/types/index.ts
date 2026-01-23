@@ -104,4 +104,5 @@ export type ServerMessage =
   | { type: "columns_reordered"; columnIds: string[] }
   | { type: "focus_changed"; cardId: string | null }
   | { type: "action_added"; cardId: string; action: ActionItem }
-  | { type: "error"; code: string; message: string };
+  | { type: "error"; code: string; message: string }
+  | { type: "pong" };

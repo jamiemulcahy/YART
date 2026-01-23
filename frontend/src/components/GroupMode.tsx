@@ -9,6 +9,7 @@ import {
   closestCenter,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -141,16 +142,12 @@ export function GroupMode() {
     }
   };
 
-  const handleDragOver = (event: {
-    active: { data: { current?: { card?: Card } } };
-    over: {
-      id: string;
-      data: { current?: { columnId?: string; type?: string } };
-    } | null;
-  }) => {
+  const handleDragOver = (event: DragOverEvent) => {
     // Only show drop target if hovering over same column
-    const draggedCard = event.active.data.current?.card;
-    const overData = event.over?.data.current;
+    const draggedCard = event.active.data.current?.card as Card | undefined;
+    const overData = event.over?.data.current as
+      | { columnId?: string; type?: string }
+      | undefined;
 
     if (!draggedCard || !event.over) {
       setOverDropId(null);
