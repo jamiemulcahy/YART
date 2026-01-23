@@ -11,16 +11,21 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // CORS headers for development
+    // CORS headers
+    const origin = request.headers.get("Origin") || "*";
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
     };
 
     // Handle CORS preflight
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders,
+      });
     }
 
     // Health check - quick response, no DO interaction
