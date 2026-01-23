@@ -145,6 +145,22 @@ const NEXT_MODE_LABELS: Partial<Record<RoomMode, string>> = {
   focus: "View Summary",
 };
 
+const PREV_MODE: Partial<Record<RoomMode, RoomMode>> = {
+  publish: "edit",
+  group: "publish",
+  vote: "group",
+  focus: "vote",
+  overview: "focus",
+};
+
+const PREV_MODE_LABELS: Partial<Record<RoomMode, string>> = {
+  publish: "Back to Setup",
+  group: "Back to Publishing",
+  vote: "Back to Grouping",
+  focus: "Back to Voting",
+  overview: "Back to Discussion",
+};
+
 const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || "anthropics/yart";
 const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
@@ -173,10 +189,18 @@ export function RoomHeader() {
   const isOwner = !!ownerKey;
   const nextMode = NEXT_MODE[room.mode];
   const nextModeLabel = NEXT_MODE_LABELS[room.mode];
+  const prevMode = PREV_MODE[room.mode];
+  const prevModeLabel = PREV_MODE_LABELS[room.mode];
 
   const handleModeTransition = () => {
     if (nextMode) {
       setMode(nextMode);
+    }
+  };
+
+  const handlePreviousMode = () => {
+    if (prevMode) {
+      setMode(prevMode);
     }
   };
 
@@ -237,11 +261,18 @@ export function RoomHeader() {
         >
           {users.length} {users.length === 1 ? "participant" : "participants"}
         </button>
-        {isOwner && nextMode && (
+        {isOwner && (prevMode || nextMode) && (
           <div className="owner-controls">
-            <button className="submit-btn" onClick={handleModeTransition}>
-              {nextModeLabel}
-            </button>
+            {prevMode && (
+              <button className="back-btn" onClick={handlePreviousMode}>
+                {prevModeLabel}
+              </button>
+            )}
+            {nextMode && (
+              <button className="submit-btn" onClick={handleModeTransition}>
+                {nextModeLabel}
+              </button>
+            )}
           </div>
         )}
       </div>
