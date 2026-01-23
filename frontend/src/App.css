@@ -966,21 +966,15 @@
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.75rem;
-  align-content: start;
+  column-count: 1;
+  column-gap: 0.75rem;
   min-height: 100px;
 }
 
 /* Two-column masonry layout for wider columns */
 @media (min-width: 1400px) {
   .column-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .column-cards .card-item {
-    break-inside: avoid;
+    column-count: 2;
   }
 }
 
@@ -998,6 +992,8 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   transition: border-color 0.2s;
+  break-inside: avoid;
+  margin-bottom: 0.75rem;
 }
 
 .card-item.own-card {
