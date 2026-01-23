@@ -12,4 +12,4 @@ class_name = "RoomDO"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["RoomDO"]
+new_sqlite_classes = ["RoomDO"]
