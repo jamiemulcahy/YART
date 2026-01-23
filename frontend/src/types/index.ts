@@ -67,6 +67,7 @@ export type ClientMessage =
   | { type: "group_cards"; cardIds: string[] }
   | { type: "ungroup_card"; cardId: string }
   | { type: "vote"; cardId: string; vote: boolean }
+  | { type: "rename_user"; newName: string }
   | { type: "owner:set_mode"; ownerKey: string; mode: RoomMode }
   | { type: "owner:add_column"; ownerKey: string; name: string }
   | {
@@ -91,6 +92,7 @@ export type ServerMessage =
   | { type: "state"; room: Room; user: User; users: User[] }
   | { type: "user_joined"; user: User }
   | { type: "user_left"; userId: string }
+  | { type: "user_renamed"; userId: string; newName: string }
   | { type: "card_published"; card: Card }
   | { type: "card_deleted"; cardId: string }
   | { type: "cards_grouped"; group: CardGroup }

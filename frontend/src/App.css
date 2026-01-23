@@ -554,6 +554,45 @@
   background: rgba(102, 126, 234, 0.1);
 }
 
+.participant-name.editable {
+  cursor: pointer;
+}
+
+.participant-name.editable:hover {
+  text-decoration: underline;
+}
+
+.participant-name-input {
+  flex: 1;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #667eea;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  min-width: 0;
+}
+
+.participant-name-input:focus {
+  outline: none;
+}
+
+.edit-name-btn {
+  margin-left: 0.5rem;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+}
+
+.edit-name-btn:hover {
+  color: #667eea;
+}
+
 .you-badge {
   margin-left: 0.5rem;
   font-size: 0.75rem;

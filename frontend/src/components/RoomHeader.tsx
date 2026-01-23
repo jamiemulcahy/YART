@@ -8,13 +8,42 @@ interface ParticipantsModalProps {
   users: User[];
   currentUserId: string | undefined;
   onClose: () => void;
+  onRename: (newName: string) => void;
 }
 
 function ParticipantsModal({
   users,
   currentUserId,
   onClose,
+  onRename,
 }: ParticipantsModalProps) {
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const currentUser = users.find((u) => u.id === currentUserId);
+
+  const handleStartEdit = () => {
+    if (currentUser) {
+      setNameInput(currentUser.name);
+      setEditingName(true);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed && trimmed !== currentUser?.name) {
+      onRename(trimmed);
+    }
+    setEditingName(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveEdit();
+    } else if (e.key === "Escape") {
+      setEditingName(false);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -39,9 +68,46 @@ function ParticipantsModal({
               key={user.id}
               className={`participant-item${user.id === currentUserId ? " current-user" : ""}`}
             >
-              <span className="participant-name">{user.name}</span>
-              {user.id === currentUserId && (
-                <span className="you-badge">(You)</span>
+              {user.id === currentUserId && editingName ? (
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleSaveEdit}
+                  autoFocus
+                  className="participant-name-input"
+                  maxLength={50}
+                  aria-label="Edit your name"
+                />
+              ) : (
+                <>
+                  <span
+                    className={`participant-name${user.id === currentUserId ? " editable" : ""}`}
+                    onClick={
+                      user.id === currentUserId ? handleStartEdit : undefined
+                    }
+                    title={
+                      user.id === currentUserId
+                        ? "Click to edit your name"
+                        : undefined
+                    }
+                  >
+                    {user.name}
+                  </span>
+                  {user.id === currentUserId && (
+                    <>
+                      <span className="you-badge">(You)</span>
+                      <button
+                        className="edit-name-btn"
+                        onClick={handleStartEdit}
+                        aria-label="Edit your name"
+                      >
+                        ✎
+                      </button>
+                    </>
+                  )}
+                </>
               )}
               {user.isOwner && (
                 <span className="participant-badge owner">Owner</span>
@@ -97,7 +163,7 @@ function GitHubIcon() {
 }
 
 export function RoomHeader() {
-  const { room, users, setMode } = useRoom();
+  const { room, users, setMode, renameUser } = useRoom();
   const { user, ownerKey } = useUser();
   const [copied, setCopied] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -184,6 +250,7 @@ export function RoomHeader() {
           users={users}
           currentUserId={user?.id}
           onClose={() => setShowParticipants(false)}
+          onRename={renameUser}
         />
       )}
     </header>

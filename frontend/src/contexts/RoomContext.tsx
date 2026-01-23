@@ -34,6 +34,7 @@ interface RoomContextValue {
   groupCards: (cardIds: string[]) => void;
   ungroupCard: (cardId: string) => void;
   vote: (cardId: string, vote: boolean) => void;
+  renameUser: (newName: string) => void;
   // Owner actions
   setMode: (mode: RoomMode) => void;
   addColumn: (name: string) => void;
@@ -94,6 +95,22 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
 
         case "user_left":
           setUsers((prev) => prev.filter((u) => u.id !== message.userId));
+          break;
+
+        case "user_renamed":
+          setUsers((prev) =>
+            prev.map((u) =>
+              u.id === message.userId ? { ...u, name: message.newName } : u
+            )
+          );
+          // Also update author names on cards
+          setCards((prev) =>
+            prev.map((card) =>
+              card.authorId === message.userId
+                ? { ...card, authorName: message.newName }
+                : card
+            )
+          );
           break;
 
         case "card_published":
@@ -316,6 +333,13 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     [sendMessage]
   );
 
+  const renameUserAction = useCallback(
+    (newName: string) => {
+      sendMessage({ type: "rename_user", newName });
+    },
+    [sendMessage]
+  );
+
   // Owner actions
   const setMode = useCallback(
     (mode: RoomMode) => {
@@ -393,6 +417,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     groupCards: groupCardsAction,
     ungroupCard,
     vote: voteAction,
+    renameUser: renameUserAction,
     setMode,
     addColumn,
     updateColumn,

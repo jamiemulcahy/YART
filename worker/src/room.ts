@@ -269,6 +269,10 @@ export class RoomDO {
         await this.handleVote(ws, data.cardId as string, data.vote as boolean);
         break;
 
+      case "rename_user":
+        await this.handleRenameUser(ws, data.newName as string);
+        break;
+
       case "owner:set_focus":
         await this.handleSetFocus(data.cardId as string | null);
         break;
@@ -585,6 +589,50 @@ export class RoomDO {
         })
       );
     }
+  }
+
+  private async handleRenameUser(
+    ws: WebSocket,
+    newName: string
+  ): Promise<void> {
+    if (!this.room || !newName) return;
+
+    // Validate name (1-50 characters)
+    const trimmedName = newName.trim();
+    if (trimmedName.length < 1 || trimmedName.length > 50) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          code: "INVALID_NAME",
+          message: "Name must be between 1 and 50 characters",
+        })
+      );
+      return;
+    }
+
+    const user = this.getUser(ws);
+    if (!user) return;
+
+    // Update user name
+    user.name = trimmedName;
+    this.setUser(ws, user);
+
+    // Update author name on all cards by this user
+    for (const card of this.room.cards) {
+      if (card.authorId === user.id) {
+        card.authorName = trimmedName;
+      }
+    }
+    await this.state.storage.put("room", this.room);
+
+    // Broadcast rename to all users
+    this.broadcast(
+      JSON.stringify({
+        type: "user_renamed",
+        userId: user.id,
+        newName: trimmedName,
+      })
+    );
   }
 
   private async handleSetFocus(cardId: string | null): Promise<void> {
