@@ -17,14 +17,13 @@ import type { Card, CardGroup } from "../types";
 
 interface DroppableCardProps {
   card: Card;
-  columnName: string;
   isOver: boolean;
 }
 
-function DroppableCard({ card, columnName, isOver }: DroppableCardProps) {
+function DroppableCard({ card, isOver }: DroppableCardProps) {
   const { setNodeRef: setDropRef } = useDroppable({
     id: `drop-${card.id}`,
-    data: { type: "card", cardId: card.id },
+    data: { type: "card", cardId: card.id, columnId: card.columnId },
   });
 
   const {
@@ -54,22 +53,15 @@ function DroppableCard({ card, columnName, isOver }: DroppableCardProps) {
       {...listeners}
       {...attributes}
     >
-      <div className="group-card-column">{columnName}</div>
       <div className="group-card-content">{card.content}</div>
       <div className="group-card-author">- {card.authorName}</div>
     </div>
   );
 }
 
-interface CardOverlayProps {
-  card: Card;
-  columnName: string;
-}
-
-function CardOverlay({ card, columnName }: CardOverlayProps) {
+function CardOverlay({ card }: { card: Card }) {
   return (
     <div className="group-card dragging">
-      <div className="group-card-column">{columnName}</div>
       <div className="group-card-content">{card.content}</div>
       <div className="group-card-author">- {card.authorName}</div>
     </div>
@@ -139,11 +131,6 @@ export function GroupMode() {
 
   const sortedColumns = [...room.columns].sort((a, b) => a.order - b.order);
 
-  const getColumnName = (columnId: string): string => {
-    const column = room.columns.find((c) => c.id === columnId);
-    return column?.name || "Unknown";
-  };
-
   // Get ungrouped cards (cards not in any group)
   const ungroupedCards = cards.filter((card) => !card.groupId);
 
@@ -154,7 +141,47 @@ export function GroupMode() {
     }
   };
 
-  const handleDragOver = (event: { over: { id: string } | null }) => {
+  const handleDragOver = (event: {
+    active: { data: { current?: { card?: Card } } };
+    over: {
+      id: string;
+      data: { current?: { columnId?: string; type?: string } };
+    } | null;
+  }) => {
+    // Only show drop target if hovering over same column
+    const draggedCard = event.active.data.current?.card;
+    const overData = event.over?.data.current;
+
+    if (!draggedCard || !event.over) {
+      setOverDropId(null);
+      return;
+    }
+
+    // For cards, check column match
+    if (
+      overData?.type === "card" &&
+      overData?.columnId !== draggedCard.columnId
+    ) {
+      setOverDropId(null);
+      return;
+    }
+
+    // For groups, check column match
+    if (overData?.type === "group") {
+      const groupId = event.over.id.toString().replace("group-", "");
+      const group = groups.find((g) => g.id === groupId);
+      if (group) {
+        const firstCardInGroup = cards.find((c) => c.id === group.cardIds[0]);
+        if (
+          firstCardInGroup &&
+          firstCardInGroup.columnId !== draggedCard.columnId
+        ) {
+          setOverDropId(null);
+          return;
+        }
+      }
+    }
+
     setOverDropId(event.over?.id?.toString() || null);
   };
 
@@ -286,7 +313,6 @@ export function GroupMode() {
                           <DroppableCard
                             key={card.id}
                             card={card}
-                            columnName={column.name}
                             isOver={overDropId === `drop-${card.id}`}
                           />
                         ))}
@@ -301,12 +327,7 @@ export function GroupMode() {
       </div>
 
       <DragOverlay>
-        {activeCard && (
-          <CardOverlay
-            card={activeCard}
-            columnName={getColumnName(activeCard.columnId)}
-          />
-        )}
+        {activeCard && <CardOverlay card={activeCard} />}
       </DragOverlay>
     </DndContext>
   );
