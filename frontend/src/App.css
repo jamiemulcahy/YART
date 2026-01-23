@@ -1070,6 +1070,7 @@
   transition: border-color 0.2s;
   break-inside: avoid;
   margin-bottom: 0.75rem;
+  overflow: hidden;
 }
 
 .card-item.own-card {
@@ -2278,6 +2279,7 @@
   touch-action: none;
   break-inside: avoid;
   margin-bottom: 0.75rem;
+  overflow: hidden;
 }
 
 .group-card:hover {
@@ -2310,6 +2312,8 @@
   font-size: 0.875rem;
   line-height: 1.4;
   margin-bottom: 0.25rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .group-card-author {
