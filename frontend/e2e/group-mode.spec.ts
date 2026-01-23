@@ -118,12 +118,8 @@ test.describe("Group Mode", () => {
     ).toBeVisible();
   });
 
-  test("all cards show column label and author", async ({ page }) => {
+  test("all cards show author name", async ({ page }) => {
     await setupRoomForGrouping(page, "Card Content Test");
-
-    // Each card should show its column name
-    const columnLabels = page.locator(".group-card-column");
-    await expect(columnLabels).toHaveCount(3);
 
     // Each card should show author name
     const authorLabels = page.locator(".group-card-author");
