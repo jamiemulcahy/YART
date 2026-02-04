@@ -14,6 +14,7 @@ export interface Room {
   columns: Column[];
   cards: Card[];
   groups: CardGroup[];
+  voteSettings: VoteSettings;
   createdAt: string;
 }
 
@@ -45,12 +46,16 @@ export interface CardGroup {
   cardIds: string[];
 }
 
+export interface VoteSettings {
+  totalVotesLimit?: number;
+  votesPerColumnLimit?: number;
+}
+
 // User types
 export interface User {
   id: string;
   name: string;
   isOwner: boolean;
-  votesCount?: number;
 }
 
 export interface DraftCard {
@@ -66,7 +71,7 @@ export type ClientMessage =
   | { type: "delete_card"; cardId: string }
   | { type: "group_cards"; cardIds: string[] }
   | { type: "ungroup_card"; cardId: string }
-  | { type: "vote"; cardId: string; vote: boolean }
+  | { type: "toggle_vote"; targetId: string; targetType: "card" | "group" }
   | { type: "rename_user"; newName: string }
   | { type: "owner:set_mode"; ownerKey: string; mode: RoomMode }
   | { type: "owner:add_column"; ownerKey: string; name: string }
@@ -85,11 +90,17 @@ export type ClientMessage =
       ownerKey: string;
       cardId: string;
       content: string;
+    }
+  | {
+      type: "owner:set_vote_settings";
+      ownerKey: string;
+      totalVotesLimit?: number;
+      votesPerColumnLimit?: number;
     };
 
 // WebSocket message types (server → client)
 export type ServerMessage =
-  | { type: "state"; room: Room; user: User; users: User[] }
+  | { type: "state"; room: Room; user: User; users: User[]; myVotes: string[] }
   | { type: "user_joined"; user: User }
   | { type: "user_left"; userId: string }
   | { type: "user_renamed"; userId: string; newName: string }
@@ -97,8 +108,15 @@ export type ServerMessage =
   | { type: "card_deleted"; cardId: string }
   | { type: "cards_grouped"; group: CardGroup }
   | { type: "card_ungrouped"; cardId: string }
-  | { type: "vote_recorded"; cardId: string; votes: number }
-  | { type: "vote_progress"; userId: string; votesCount: number }
+  | {
+      type: "vote_toggled";
+      targetId: string;
+      targetType: "card" | "group";
+      votes: number;
+      userId: string;
+      action: "add" | "remove";
+    }
+  | { type: "vote_settings_changed"; voteSettings: VoteSettings }
   | { type: "mode_changed"; mode: RoomMode }
   | { type: "column_added"; column: Column }
   | { type: "column_updated"; column: Column }

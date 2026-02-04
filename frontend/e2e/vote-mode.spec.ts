@@ -64,61 +64,96 @@ async function setupRoomForVoting(page: Page, roomName: string) {
 }
 
 test.describe("Vote Mode", () => {
-  test("vote mode shows cards one at a time", async ({ page }) => {
+  test("vote mode shows all cards organized by column", async ({ page }) => {
     await setupRoomForVoting(page, "Vote Display Test");
 
-    // Should see a swipe card component
-    await expect(page.locator(".swipe-card")).toBeVisible();
+    // Should see cards in the column layout
+    await expect(page.locator(".vote-card")).toHaveCount(2);
 
-    // Should show progress indicator (e.g., "0 / 2 cards")
-    await expect(page.getByText(/\d+ \/ \d+ cards/)).toBeVisible();
+    // Should see the instruction text
+    await expect(
+      page.getByText(/Click on cards or groups to vote/)
+    ).toBeVisible();
+
+    // Should show unlimited voting by default
+    await expect(page.getByText("Unlimited voting")).toBeVisible();
   });
 
-  test("can vote yes using button", async ({ page }) => {
-    await setupRoomForVoting(page, "Vote Yes Test");
+  test("can vote on a card by clicking", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Click Test");
 
-    // Find and click the "Yes" button
-    const yesButton = page.getByRole("button", { name: "Vote Yes" });
-    await yesButton.click();
+    // Find the first vote card
+    const firstCard = page
+      .getByRole("button", { name: "Vote for card" })
+      .first();
+    await expect(firstCard).toBeVisible();
 
-    // Progress should update (now 1 / 2)
-    await expect(page.getByText(/1 \/ \d+ cards/)).toBeVisible();
+    // Click to vote
+    await firstCard.click();
+
+    // Card should now show "Voted" state
+    await expect(
+      page.getByRole("button", { name: "Remove vote from card" }).first()
+    ).toBeVisible();
   });
 
-  test("can vote no using button", async ({ page }) => {
-    await setupRoomForVoting(page, "Vote No Test");
+  test("can toggle vote off by clicking again", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Toggle Test");
 
-    // Find and click the "No" button
-    const noButton = page.getByRole("button", { name: "Vote No" });
-    await noButton.click();
+    // Vote on first card
+    const firstCard = page
+      .getByRole("button", { name: "Vote for card" })
+      .first();
+    await firstCard.click();
 
-    // Progress should update
-    await expect(page.getByText(/1 \/ \d+ cards/)).toBeVisible();
+    // Should show voted state
+    const votedCard = page
+      .getByRole("button", { name: "Remove vote from card" })
+      .first();
+    await expect(votedCard).toBeVisible();
+
+    // Click again to remove vote
+    await votedCard.click();
+
+    // Should be back to unvoted state
+    await expect(
+      page.getByRole("button", { name: "Vote for card" }).first()
+    ).toBeVisible();
   });
 
-  test("progress updates after each vote", async ({ page }) => {
-    await setupRoomForVoting(page, "Vote Progress Test");
+  test("vote count updates after voting", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Count Test");
 
-    // Should start at 0
-    await expect(page.getByText(/0 \/ \d+ cards/)).toBeVisible();
+    // Initially should show 0 votes
+    await expect(page.getByText("0 votes").first()).toBeVisible();
 
     // Vote on the first card
-    await page.getByRole("button", { name: "Vote Yes" }).click();
+    await page.getByRole("button", { name: "Vote for card" }).first().click();
 
-    // Progress should update to 1
-    await expect(page.getByText(/1 \/ \d+ cards/)).toBeVisible();
+    // Should now show 1 vote
+    await expect(page.getByText("1 vote").first()).toBeVisible();
   });
 
-  test("voting complete shows message", async ({ page }) => {
-    await setupRoomForVoting(page, "Vote Complete Test");
+  test("can vote on multiple cards", async ({ page }) => {
+    await setupRoomForVoting(page, "Multi Vote Test");
 
-    // Vote on all cards (we have 2)
-    await page.getByRole("button", { name: "Vote Yes" }).click();
-    await page.getByRole("button", { name: "Vote Yes" }).click();
+    // Vote on both cards - need to wait for the first vote to register before clicking second
+    const voteButtons = page.getByRole("button", { name: "Vote for card" });
+    await expect(voteButtons).toHaveCount(2);
 
-    // Should show voting complete message
-    await expect(page.getByText("Voting Complete!")).toBeVisible();
-    await expect(page.getByText(/You've voted on all \d+ cards/)).toBeVisible();
+    await voteButtons.first().click();
+    // Wait for the voted state to appear before clicking the next card
+    await expect(
+      page.getByRole("button", { name: "Remove vote from card" })
+    ).toHaveCount(1);
+
+    // Now click the remaining unvoted card
+    await page.getByRole("button", { name: "Vote for card" }).click();
+
+    // Both cards should show voted state
+    await expect(
+      page.getByRole("button", { name: "Remove vote from card" })
+    ).toHaveCount(2);
   });
 
   test("owner can transition from vote to focus mode", async ({ page }) => {
@@ -139,47 +174,59 @@ test.describe("Vote Mode", () => {
     ).toBeVisible();
   });
 
-  test("can vote yes using right arrow key", async ({ page }) => {
-    await setupRoomForVoting(page, "Vote Arrow Right Test");
+  test("owner can access vote settings", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Settings Test");
 
-    // Should start at 0
-    await expect(page.getByText(/0 \/ \d+ cards/)).toBeVisible();
+    // Owner should see the settings button
+    const settingsButton = page.getByRole("button", { name: "Vote settings" });
+    await expect(settingsButton).toBeVisible();
 
-    // Press right arrow to vote yes
-    await page.keyboard.press("ArrowRight");
+    // Click to open settings modal
+    await settingsButton.click();
 
-    // Progress should update
-    await expect(page.getByText(/1 \/ \d+ cards/)).toBeVisible();
+    // Should see the settings modal
+    await expect(
+      page.getByRole("heading", { name: "Vote Settings", exact: true })
+    ).toBeVisible();
+    await expect(page.getByLabel(/Total votes per person/i)).toBeVisible();
+    await expect(page.getByLabel(/Votes per column per person/i)).toBeVisible();
   });
 
-  test("can vote no using left arrow key", async ({ page }) => {
-    await setupRoomForVoting(page, "Vote Arrow Left Test");
+  test("vote limits are enforced", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Limit Test");
 
-    // Should start at 0
-    await expect(page.getByText(/0 \/ \d+ cards/)).toBeVisible();
+    // Open settings and set a limit of 1 vote
+    await page.getByRole("button", { name: "Vote settings" }).click();
+    await page.getByLabel(/Total votes per person/i).fill("1");
+    await page.getByRole("button", { name: "Save" }).click();
 
-    // Press left arrow to vote no
-    await page.keyboard.press("ArrowLeft");
+    // Should show the limit
+    await expect(page.getByText("Total votes: 0 / 1")).toBeVisible();
 
-    // Progress should update
-    await expect(page.getByText(/1 \/ \d+ cards/)).toBeVisible();
+    // Vote on first card
+    await page.getByRole("button", { name: "Vote for card" }).first().click();
+
+    // Should show 1 / 1 used
+    await expect(page.getByText("Total votes: 1 / 1")).toBeVisible();
+
+    // Try to vote on second card - should be silently rejected (limit reached)
+    await page.getByRole("button", { name: "Vote for card" }).first().click();
+
+    // Still should show 1 / 1 (vote was rejected)
+    await expect(page.getByText("Total votes: 1 / 1")).toBeVisible();
   });
 
-  test("can complete voting using only arrow keys", async ({ page }) => {
-    await setupRoomForVoting(page, "Vote Arrow Keys Test");
+  test("cards show author information", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Author Test");
 
-    // Vote on all cards using arrow keys (we have 2 cards)
-    await page.keyboard.press("ArrowRight"); // Yes on first card
-    await page.keyboard.press("ArrowLeft"); // No on second card
-
-    // Should show voting complete message
-    await expect(page.getByText("Voting Complete!")).toBeVisible();
+    // Cards should show author (the user who created them)
+    await expect(page.locator(".vote-card-author").first()).toBeVisible();
   });
 
-  test("vote mode header mentions arrow keys", async ({ page }) => {
-    await setupRoomForVoting(page, "Vote Header Test");
+  test("column header shows card count", async ({ page }) => {
+    await setupRoomForVoting(page, "Vote Column Count Test");
 
-    // Header should mention arrow keys
-    await expect(page.getByText(/arrow keys/i)).toBeVisible();
+    // Column should show count of 2 (we added 2 cards)
+    await expect(page.getByText("2").first()).toBeVisible();
   });
 });

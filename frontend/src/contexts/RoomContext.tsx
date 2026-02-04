@@ -15,6 +15,7 @@ import type {
   Column,
   ServerMessage,
   ClientMessage,
+  VoteSettings,
 } from "../types";
 import { useWebSocket } from "../hooks";
 import { useUser } from "./UserContext";
@@ -25,6 +26,8 @@ interface RoomContextValue {
   cards: Card[];
   groups: CardGroup[];
   focusedCardId: string | null;
+  voteSettings: VoteSettings;
+  myVotes: Set<string>;
   isConnected: boolean;
   isLoading: boolean;
   error: string | null;
@@ -33,8 +36,10 @@ interface RoomContextValue {
   deleteCard: (cardId: string) => void;
   groupCards: (cardIds: string[]) => void;
   ungroupCard: (cardId: string) => void;
-  vote: (cardId: string, vote: boolean) => void;
+  toggleVote: (targetId: string, targetType: "card" | "group") => void;
   renameUser: (newName: string) => void;
+  getMyVotesInColumn: (columnId: string) => number;
+  getTotalMyVotes: () => number;
   // Owner actions
   setMode: (mode: RoomMode) => void;
   addColumn: (name: string) => void;
@@ -43,6 +48,10 @@ interface RoomContextValue {
   reorderColumns: (columnIds: string[]) => void;
   setFocus: (cardId: string | null) => void;
   addAction: (cardId: string, content: string) => void;
+  setVoteSettings: (
+    totalVotesLimit?: number,
+    votesPerColumnLimit?: number
+  ) => void;
 }
 
 const RoomContext = createContext<RoomContextValue | null>(null);
@@ -60,6 +69,8 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [groups, setGroups] = useState<CardGroup[]>([]);
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  const [voteSettings, setVoteSettingsState] = useState<VoteSettings>({});
+  const [myVotes, setMyVotes] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +89,8 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           setGroups(message.room.groups || []);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setFocusedCardId((message.room as any).focusedCardId ?? null);
+          setVoteSettingsState(message.room.voteSettings || {});
+          setMyVotes(new Set(message.myVotes || []));
           setUser(message.user);
           setUsers(message.users);
           setIsLoading(false);
@@ -169,24 +182,43 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           );
           break;
 
-        case "vote_recorded":
-          setCards((prev) =>
-            prev.map((card) =>
-              card.id === message.cardId
-                ? { ...card, votes: message.votes }
-                : card
-            )
-          );
+        case "vote_toggled":
+          // Update card/group vote count
+          if (message.targetType === "card") {
+            setCards((prev) =>
+              prev.map((card) =>
+                card.id === message.targetId
+                  ? { ...card, votes: message.votes }
+                  : card
+              )
+            );
+          } else {
+            // For groups, update all cards in the group to have the same vote count
+            setCards((prev) => {
+              const group = groups.find((g) => g.id === message.targetId);
+              if (!group) return prev;
+              return prev.map((card) =>
+                group.cardIds.includes(card.id)
+                  ? { ...card, votes: message.votes }
+                  : card
+              );
+            });
+          }
+
+          // Update myVotes if this was the current user
+          setMyVotes((prev) => {
+            const next = new Set(prev);
+            if (message.action === "add") {
+              next.add(message.targetId);
+            } else {
+              next.delete(message.targetId);
+            }
+            return next;
+          });
           break;
 
-        case "vote_progress":
-          setUsers((prev) =>
-            prev.map((user) =>
-              user.id === message.userId
-                ? { ...user, votesCount: message.votesCount }
-                : user
-            )
-          );
+        case "vote_settings_changed":
+          setVoteSettingsState(message.voteSettings);
           break;
 
         case "mode_changed":
@@ -266,7 +298,14 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           break;
 
         case "error":
-          setError(message.message);
+          // Only set global error for critical errors, not vote limits
+          if (
+            message.code !== "VOTE_LIMIT_REACHED" &&
+            message.code !== "COLUMN_VOTE_LIMIT_REACHED"
+          ) {
+            setError(message.message);
+          }
+          // Vote limit errors are expected - the UI already shows the limits
           break;
       }
     },
@@ -330,12 +369,38 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     [sendMessage]
   );
 
-  const voteAction = useCallback(
-    (cardId: string, vote: boolean) => {
-      sendMessage({ type: "vote", cardId, vote });
+  const toggleVoteAction = useCallback(
+    (targetId: string, targetType: "card" | "group") => {
+      sendMessage({ type: "toggle_vote", targetId, targetType });
     },
     [sendMessage]
   );
+
+  const getMyVotesInColumn = useCallback(
+    (columnId: string): number => {
+      let count = 0;
+      for (const targetId of myVotes) {
+        // Check if it's a card in this column
+        const card = cards.find((c) => c.id === targetId);
+        if (card && card.columnId === columnId) {
+          count++;
+          continue;
+        }
+        // Check if it's a group in this column
+        const group = groups.find((g) => g.id === targetId);
+        if (group) {
+          const firstCard = cards.find((c) => c.id === group.cardIds[0]);
+          if (firstCard?.columnId === columnId) {
+            count++;
+          }
+        }
+      }
+      return count;
+    },
+    [myVotes, cards, groups]
+  );
+
+  const getTotalMyVotes = useCallback(() => myVotes.size, [myVotes]);
 
   const renameUserAction = useCallback(
     (newName: string) => {
@@ -407,12 +472,27 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     [sendMessage, ownerKey]
   );
 
+  const setVoteSettingsAction = useCallback(
+    (totalVotesLimit?: number, votesPerColumnLimit?: number) => {
+      if (!ownerKey) return;
+      sendMessage({
+        type: "owner:set_vote_settings",
+        ownerKey,
+        totalVotesLimit,
+        votesPerColumnLimit,
+      });
+    },
+    [sendMessage, ownerKey]
+  );
+
   const value: RoomContextValue = {
     room,
     users,
     cards,
     groups,
     focusedCardId,
+    voteSettings,
+    myVotes,
     isConnected,
     isLoading,
     error,
@@ -420,8 +500,10 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     deleteCard,
     groupCards: groupCardsAction,
     ungroupCard,
-    vote: voteAction,
+    toggleVote: toggleVoteAction,
     renameUser: renameUserAction,
+    getMyVotesInColumn,
+    getTotalMyVotes,
     setMode,
     addColumn,
     updateColumn,
@@ -429,6 +511,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     reorderColumns,
     setFocus,
     addAction,
+    setVoteSettings: setVoteSettingsAction,
   };
 
   return <RoomContext.Provider value={value}>{children}</RoomContext.Provider>;

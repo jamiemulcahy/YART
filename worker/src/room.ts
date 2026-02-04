@@ -16,6 +16,11 @@ interface CardGroup {
   cardIds: string[];
 }
 
+interface VoteSettings {
+  totalVotesLimit?: number;
+  votesPerColumnLimit?: number;
+}
+
 interface RoomState {
   name: string;
   ownerKey: string;
@@ -29,6 +34,8 @@ interface RoomState {
   cards: Card[];
   groups: CardGroup[];
   focusedCardId: string | null;
+  voteSettings: VoteSettings;
+  userVotes: Record<string, Record<string, boolean>>; // userId -> targetId -> voted
   createdAt: string;
 }
 
@@ -36,7 +43,6 @@ interface User {
   id: string;
   name: string;
   isOwner: boolean;
-  votesCount: number;
 }
 
 export class RoomDO {
@@ -96,6 +102,8 @@ export class RoomDO {
         cards: [],
         groups: [],
         focusedCardId: null,
+        voteSettings: {},
+        userVotes: {},
         createdAt: new Date().toISOString(),
       };
 
@@ -152,7 +160,6 @@ export class RoomDO {
               id: requestedUserId,
               name: userCard.authorName,
               isOwner: false,
-              votesCount: 0,
             };
           } else {
             // User ID exists but no cards - create new user with requested ID
@@ -160,7 +167,6 @@ export class RoomDO {
               id: requestedUserId,
               name: generateAnonymousName(),
               isOwner: false,
-              votesCount: 0,
             };
           }
         } else {
@@ -169,7 +175,6 @@ export class RoomDO {
             id: generateId(16),
             name: generateAnonymousName(),
             isOwner: false,
-            votesCount: 0,
           };
         }
       } else {
@@ -178,7 +183,6 @@ export class RoomDO {
           id: generateId(16),
           name: generateAnonymousName(),
           isOwner: false,
-          votesCount: 0,
         };
       }
 
@@ -188,6 +192,9 @@ export class RoomDO {
 
       // Get all users including the new one
       const allUsers = this.getAllUsers();
+
+      // Get the user's votes (handle missing userVotes for backwards compatibility)
+      const myVotes = Object.keys(this.room.userVotes?.[user.id] || {});
 
       // Send initial state
       server.send(
@@ -201,10 +208,12 @@ export class RoomDO {
             cards: this.room.cards,
             groups: this.room.groups,
             focusedCardId: this.room.focusedCardId,
+            voteSettings: this.room.voteSettings || {},
             createdAt: this.room.createdAt,
           },
           user,
           users: allUsers,
+          myVotes,
         })
       );
 
@@ -312,8 +321,19 @@ export class RoomDO {
         await this.handleUngroupCard(data.cardId as string);
         break;
 
-      case "vote":
-        await this.handleVote(ws, data.cardId as string, data.vote as boolean);
+      case "toggle_vote":
+        await this.handleToggleVote(
+          ws,
+          data.targetId as string,
+          data.targetType as "card" | "group"
+        );
+        break;
+
+      case "owner:set_vote_settings":
+        await this.handleSetVoteSettings(
+          data.totalVotesLimit as number | undefined,
+          data.votesPerColumnLimit as number | undefined
+        );
         break;
 
       case "rename_user":
@@ -598,44 +618,173 @@ export class RoomDO {
     this.broadcast(JSON.stringify({ type: "card_ungrouped", cardId }));
   }
 
-  private async handleVote(
+  private async handleToggleVote(
     ws: WebSocket,
-    cardId: string,
-    vote: boolean
+    targetId: string,
+    targetType: "card" | "group"
   ): Promise<void> {
-    if (!this.room || !cardId) return;
+    if (!this.room || !targetId) return;
 
-    const card = this.room.cards.find((c) => c.id === cardId);
-    if (!card) return;
+    const user = this.getUser(ws);
+    if (!user) return;
 
-    // Increment votes if yes, do nothing if no
-    if (vote) {
-      card.votes += 1;
+    // Initialize userVotes if needed (backwards compatibility)
+    if (!this.room.userVotes) {
+      this.room.userVotes = {};
     }
+
+    // Get or initialize user's votes
+    const userVotes = this.room.userVotes[user.id] || {};
+    const hasVoted = !!userVotes[targetId];
+
+    // Determine column for the target
+    let columnId: string | null = null;
+    if (targetType === "card") {
+      const card = this.room.cards.find((c) => c.id === targetId);
+      if (!card) return;
+      // Can't vote on individual cards that are grouped
+      if (card.groupId) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            code: "CARD_IS_GROUPED",
+            message: "Cannot vote on individual cards that are in a group",
+          })
+        );
+        return;
+      }
+      columnId = card.columnId;
+    } else {
+      const group = this.room.groups.find((g) => g.id === targetId);
+      if (!group) return;
+      const firstCard = this.room.cards.find((c) => c.id === group.cardIds[0]);
+      columnId = firstCard?.columnId || null;
+    }
+
+    if (!columnId) return;
+
+    // If adding a vote, check limits
+    if (!hasVoted) {
+      const { totalVotesLimit, votesPerColumnLimit } =
+        this.room.voteSettings || {};
+
+      // Check total votes limit
+      if (totalVotesLimit !== undefined) {
+        const totalVotes = Object.keys(userVotes).length;
+        if (totalVotes >= totalVotesLimit) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              code: "VOTE_LIMIT_REACHED",
+              message: `You have reached your maximum of ${totalVotesLimit} votes`,
+            })
+          );
+          return;
+        }
+      }
+
+      // Check per-column limit
+      if (votesPerColumnLimit !== undefined) {
+        const columnVotes = this.countUserVotesInColumn(user.id, columnId);
+        if (columnVotes >= votesPerColumnLimit) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              code: "COLUMN_VOTE_LIMIT_REACHED",
+              message: `You have reached your maximum of ${votesPerColumnLimit} votes in this column`,
+            })
+          );
+          return;
+        }
+      }
+    }
+
+    // Toggle the vote
+    if (hasVoted) {
+      delete userVotes[targetId];
+    } else {
+      userVotes[targetId] = true;
+    }
+    this.room.userVotes[user.id] = userVotes;
+
+    // Calculate new vote count for the target
+    const newVotes = this.getTargetVoteCount(targetId);
+
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(
+      JSON.stringify({
+        type: "vote_toggled",
+        targetId,
+        targetType,
+        votes: newVotes,
+        userId: user.id,
+        action: hasVoted ? "remove" : "add",
+      })
+    );
+  }
+
+  private countUserVotesInColumn(userId: string, columnId: string): number {
+    const userVotes = this.room?.userVotes?.[userId] || {};
+    let count = 0;
+
+    for (const targetId of Object.keys(userVotes)) {
+      // Check if it's a card in this column
+      const card = this.room?.cards.find((c) => c.id === targetId);
+      if (card && card.columnId === columnId) {
+        count++;
+        continue;
+      }
+
+      // Check if it's a group in this column
+      const group = this.room?.groups.find((g) => g.id === targetId);
+      if (group) {
+        const firstCard = this.room?.cards.find(
+          (c) => c.id === group.cardIds[0]
+        );
+        if (firstCard?.columnId === columnId) {
+          count++;
+        }
+      }
+    }
+
+    return count;
+  }
+
+  private getTargetVoteCount(targetId: string): number {
+    if (!this.room?.userVotes) return 0;
+
+    // Count all users who voted for this target
+    let count = 0;
+    for (const userVotes of Object.values(this.room.userVotes)) {
+      if (userVotes[targetId]) count++;
+    }
+    return count;
+  }
+
+  private async handleSetVoteSettings(
+    totalVotesLimit?: number,
+    votesPerColumnLimit?: number
+  ): Promise<void> {
+    if (!this.room) return;
+
+    // Initialize voteSettings if needed
+    if (!this.room.voteSettings) {
+      this.room.voteSettings = {};
+    }
+
+    this.room.voteSettings = {
+      totalVotesLimit: totalVotesLimit ?? undefined,
+      votesPerColumnLimit: votesPerColumnLimit ?? undefined,
+    };
 
     await this.state.storage.put("room", this.room);
     this.broadcast(
       JSON.stringify({
-        type: "vote_recorded",
-        cardId,
-        votes: card.votes,
+        type: "vote_settings_changed",
+        voteSettings: this.room.voteSettings,
       })
     );
-
-    // Update user's vote progress count
-    const user = this.getUser(ws);
-    if (user) {
-      user.votesCount = (user.votesCount || 0) + 1;
-      this.setUser(ws, user);
-      // Broadcast vote progress to all users
-      this.broadcast(
-        JSON.stringify({
-          type: "vote_progress",
-          userId: user.id,
-          votesCount: user.votesCount,
-        })
-      );
-    }
   }
 
   private async handleRenameUser(

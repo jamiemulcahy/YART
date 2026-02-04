@@ -2,7 +2,94 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useRoom } from "../contexts/RoomContext";
 import { useUser } from "../contexts/UserContext";
-import type { RoomMode, User } from "../types";
+import type { RoomMode, User, VoteSettings } from "../types";
+
+interface VoteSettingsModalProps {
+  voteSettings: VoteSettings;
+  onSave: (totalLimit?: number, perColumnLimit?: number) => void;
+  onClose: () => void;
+}
+
+function VoteSettingsModal({
+  voteSettings,
+  onSave,
+  onClose,
+}: VoteSettingsModalProps) {
+  const [totalLimit, setTotalLimit] = useState<string>(
+    voteSettings.totalVotesLimit?.toString() || ""
+  );
+  const [perColumnLimit, setPerColumnLimit] = useState<string>(
+    voteSettings.votesPerColumnLimit?.toString() || ""
+  );
+
+  const handleSave = () => {
+    onSave(
+      totalLimit ? parseInt(totalLimit, 10) : undefined,
+      perColumnLimit ? parseInt(perColumnLimit, 10) : undefined
+    );
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="vote-settings-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-labelledby="vote-settings-title"
+      >
+        <div className="vote-settings-header">
+          <h2 id="vote-settings-title">Vote Settings</h2>
+          <button
+            className="modal-close-btn"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div className="vote-settings-content">
+          <div className="form-group">
+            <label htmlFor="total-limit">
+              Total votes per person
+              <span className="form-hint">Leave empty for unlimited</span>
+            </label>
+            <input
+              id="total-limit"
+              type="number"
+              min="1"
+              value={totalLimit}
+              onChange={(e) => setTotalLimit(e.target.value)}
+              placeholder="Unlimited"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="column-limit">
+              Votes per column per person
+              <span className="form-hint">Leave empty for unlimited</span>
+            </label>
+            <input
+              id="column-limit"
+              type="number"
+              min="1"
+              value={perColumnLimit}
+              onChange={(e) => setPerColumnLimit(e.target.value)}
+              placeholder="Unlimited"
+            />
+          </div>
+        </div>
+        <div className="vote-settings-actions">
+          <button className="back-btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="submit-btn" onClick={handleSave}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface ParticipantsModalProps {
   users: User[];
@@ -179,10 +266,12 @@ function GitHubIcon() {
 }
 
 export function RoomHeader() {
-  const { room, users, setMode, renameUser } = useRoom();
+  const { room, users, setMode, renameUser, voteSettings, setVoteSettings } =
+    useRoom();
   const { user, ownerKey } = useUser();
   const [copied, setCopied] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [showVoteSettings, setShowVoteSettings] = useState(false);
 
   if (!room) return null;
 
@@ -261,6 +350,16 @@ export function RoomHeader() {
         >
           {users.length} {users.length === 1 ? "participant" : "participants"}
         </button>
+        {isOwner && (
+          <button
+            className="settings-btn"
+            onClick={() => setShowVoteSettings(true)}
+            aria-label="Vote settings"
+            title="Vote settings"
+          >
+            ⚙
+          </button>
+        )}
         {isOwner && (prevMode || nextMode) && (
           <div className="owner-controls">
             {prevMode && (
@@ -282,6 +381,13 @@ export function RoomHeader() {
           currentUserId={user?.id}
           onClose={() => setShowParticipants(false)}
           onRename={renameUser}
+        />
+      )}
+      {showVoteSettings && (
+        <VoteSettingsModal
+          voteSettings={voteSettings}
+          onSave={setVoteSettings}
+          onClose={() => setShowVoteSettings(false)}
         />
       )}
     </header>
