@@ -3,8 +3,8 @@ import {
   useContext,
   useState,
   useCallback,
-  useEffect,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import type { User, DraftCard } from "../types";
 import { generateId } from "../utils";
@@ -16,7 +16,7 @@ interface UserContextValue {
   user: User | null;
   ownerKey: string | null;
   draftCards: DraftCard[];
-  setUser: (user: User | null) => void;
+  setUser: (user: SetStateAction<User | null>) => void;
   setOwnerKey: (key: string | null, roomId?: string) => void;
   loadOwnerKey: (roomId: string) => string | null;
   saveUserId: (roomId: string, userId: string) => void;
@@ -121,18 +121,6 @@ export function UserProvider({ children }: UserProviderProps) {
   const clearDraftCards = useCallback(() => {
     setDraftCards([]);
   }, []);
-
-  // Update user.isOwner when ownerKey changes
-  useEffect(() => {
-    setUser((currentUser) => {
-      if (!currentUser) return null;
-      const shouldBeOwner = !!ownerKey;
-      if (currentUser.isOwner !== shouldBeOwner) {
-        return { ...currentUser, isOwner: shouldBeOwner };
-      }
-      return currentUser;
-    });
-  }, [ownerKey]);
 
   const value: UserContextValue = {
     user,

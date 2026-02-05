@@ -8,6 +8,7 @@ interface UseWebSocketOptions {
   onDisconnect?: () => void;
   onError?: (error: Event) => void;
   userId?: string;
+  ownerKey?: string;
 }
 
 interface UseWebSocketReturn {
@@ -25,7 +26,8 @@ export function useWebSocket(
   roomId: string | null,
   options: UseWebSocketOptions = {}
 ): UseWebSocketReturn {
-  const { onMessage, onConnect, onDisconnect, onError, userId } = options;
+  const { onMessage, onConnect, onDisconnect, onError, userId, ownerKey } =
+    options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<ServerMessage | null>(null);
@@ -46,11 +48,13 @@ export function useWebSocket(
   const onDisconnectRef = useRef(onDisconnect);
   const onErrorRef = useRef(onError);
 
-  // Update refs when callbacks change (synchronously during render for immediate availability)
-  onMessageRef.current = onMessage;
-  onConnectRef.current = onConnect;
-  onDisconnectRef.current = onDisconnect;
-  onErrorRef.current = onError;
+  // Update refs when callbacks change
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+    onConnectRef.current = onConnect;
+    onDisconnectRef.current = onDisconnect;
+    onErrorRef.current = onError;
+  });
 
   const clearPingInterval = useCallback(() => {
     if (pingIntervalRef.current) {
@@ -66,9 +70,16 @@ export function useWebSocket(
     }
   }, []);
 
-  // Store userId in ref to use during reconnection
+  // Store userId and ownerKey in refs to use during reconnection
   const userIdRef = useRef(userId);
-  userIdRef.current = userId;
+  const ownerKeyRef = useRef(ownerKey);
+  useEffect(() => {
+    userIdRef.current = userId;
+    ownerKeyRef.current = ownerKey;
+  });
+
+  // Ref for recursive reconnection to avoid self-reference before declaration
+  const connectRef = useRef<(roomId: string) => void>(() => {});
 
   const connect = useCallback(
     (targetRoomId: string) => {
@@ -86,7 +97,11 @@ export function useWebSocket(
         return;
       }
 
-      const url = getWebSocketUrl(targetRoomId, userIdRef.current);
+      const url = getWebSocketUrl(
+        targetRoomId,
+        userIdRef.current,
+        ownerKeyRef.current
+      );
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
@@ -165,7 +180,7 @@ export function useWebSocket(
           clearReconnectTimeout();
           reconnectTimeoutRef.current = setTimeout(() => {
             if (!isCleaningUp.current) {
-              connect(targetRoomId);
+              connectRef.current(targetRoomId);
             }
           }, delay);
         }
@@ -181,6 +196,9 @@ export function useWebSocket(
     },
     [clearPingInterval, clearReconnectTimeout]
   );
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const disconnect = useCallback(() => {
     isCleaningUp.current = true;

@@ -36,6 +36,7 @@ interface RoomState {
   focusedCardId: string | null;
   voteSettings: VoteSettings;
   userVotes: Record<string, Record<string, boolean>>; // userId -> targetId -> voted
+  userNames: Record<string, string>; // userId -> last known name
   createdAt: string;
 }
 
@@ -104,6 +105,7 @@ export class RoomDO {
         focusedCardId: null,
         voteSettings: {},
         userVotes: {},
+        userNames: {},
         createdAt: new Date().toISOString(),
       };
 
@@ -135,11 +137,14 @@ export class RoomDO {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
 
-      // Check for userId in URL for identity restoration
+      // Check for userId and ownerKey in URL for identity restoration
       const requestedUserId = url.searchParams.get("userId");
+      const requestedOwnerKey = url.searchParams.get("ownerKey");
 
       // Try to restore user identity from stored userId
       let user: User;
+      const isOwner =
+        !!requestedOwnerKey && this.validateOwnerKey(requestedOwnerKey);
 
       if (requestedUserId) {
         // Check if this userId is already connected (prevent duplicates)
@@ -150,23 +155,25 @@ export class RoomDO {
         });
 
         if (!alreadyConnected) {
-          // Check if this userId authored any cards
+          // Restore user name: prefer stored name, fall back to card author name
+          const storedName = (this.room.userNames || {})[requestedUserId];
           const userCard = this.room.cards.find(
             (c) => c.authorId === requestedUserId
           );
-          if (userCard) {
+          const restoredName = storedName || userCard?.authorName;
+          if (restoredName) {
             // Restore user with their previous name
             user = {
               id: requestedUserId,
-              name: userCard.authorName,
-              isOwner: false,
+              name: restoredName,
+              isOwner,
             };
           } else {
-            // User ID exists but no cards - create new user with requested ID
+            // User ID exists but no stored name - create new user with requested ID
             user = {
               id: requestedUserId,
               name: generateAnonymousName(),
-              isOwner: false,
+              isOwner,
             };
           }
         } else {
@@ -174,7 +181,7 @@ export class RoomDO {
           user = {
             id: generateId(16),
             name: generateAnonymousName(),
-            isOwner: false,
+            isOwner,
           };
         }
       } else {
@@ -182,13 +189,18 @@ export class RoomDO {
         user = {
           id: generateId(16),
           name: generateAnonymousName(),
-          isOwner: false,
+          isOwner,
         };
       }
 
       // Accept WebSocket with hibernation API and attach user data
       this.state.acceptWebSocket(server);
       this.setUser(server, user);
+
+      // Track user name for reconnection
+      if (!this.room.userNames) this.room.userNames = {};
+      this.room.userNames[user.id] = user.name;
+      await this.state.storage.put("room", this.room);
 
       // Get all users including the new one
       const allUsers = this.getAllUsers();
@@ -311,6 +323,14 @@ export class RoomDO {
 
       case "delete_card":
         await this.handleDeleteCard(ws, data.cardId as string);
+        break;
+
+      case "edit_card":
+        await this.handleEditCard(
+          ws,
+          data.cardId as string,
+          data.content as string
+        );
         break;
 
       case "group_cards":
@@ -541,6 +561,51 @@ export class RoomDO {
     await this.state.storage.put("room", this.room);
 
     this.broadcast(JSON.stringify({ type: "card_deleted", cardId }));
+  }
+
+  private async handleEditCard(
+    ws: WebSocket,
+    cardId: string,
+    content: string
+  ): Promise<void> {
+    if (!this.room || !cardId || !content?.trim()) return;
+
+    const user = this.getUser(ws);
+    if (!user) return;
+
+    const card = this.room.cards.find((c) => c.id === cardId);
+    if (!card) return;
+
+    // Only allow users to edit their own cards
+    if (card.authorId !== user.id) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          code: "UNAUTHORIZED",
+          message: "You can only edit your own cards",
+        })
+      );
+      return;
+    }
+
+    const trimmedContent = content.trim();
+    if (trimmedContent.length > 1000) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          code: "CONTENT_TOO_LONG",
+          message: "Card content cannot exceed 1000 characters",
+        })
+      );
+      return;
+    }
+
+    card.content = trimmedContent;
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(
+      JSON.stringify({ type: "card_edited", cardId, content: trimmedContent })
+    );
   }
 
   private async handleGroupCards(cardIds: string[]): Promise<void> {
@@ -813,6 +878,10 @@ export class RoomDO {
     user.name = trimmedName;
     this.setUser(ws, user);
 
+    // Persist user name for reconnection
+    if (!this.room.userNames) this.room.userNames = {};
+    this.room.userNames[user.id] = trimmedName;
+
     // Update author name on all cards by this user
     for (const card of this.room.cards) {
       if (card.authorId === user.id) {
@@ -875,7 +944,7 @@ export class RoomDO {
     }
   }
 
-  async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
+  async webSocketError(_ws: WebSocket, error: unknown): Promise<void> {
     console.error("WebSocket error:", error);
     // The close handler will be called after this
   }

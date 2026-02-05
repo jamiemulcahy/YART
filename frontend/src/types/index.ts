@@ -69,6 +69,7 @@ export type ClientMessage =
   | { type: "join"; userName?: string; userId?: string }
   | { type: "publish_card"; columnId: string; content: string }
   | { type: "delete_card"; cardId: string }
+  | { type: "edit_card"; cardId: string; content: string }
   | { type: "group_cards"; cardIds: string[] }
   | { type: "ungroup_card"; cardId: string }
   | { type: "toggle_vote"; targetId: string; targetType: "card" | "group" }
@@ -106,6 +107,7 @@ export type ServerMessage =
   | { type: "user_renamed"; userId: string; newName: string }
   | { type: "card_published"; card: Card }
   | { type: "card_deleted"; cardId: string }
+  | { type: "card_edited"; cardId: string; content: string }
   | { type: "cards_grouped"; group: CardGroup }
   | { type: "card_ungrouped"; cardId: string }
   | {

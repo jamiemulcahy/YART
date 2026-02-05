@@ -3,7 +3,7 @@ import {
   useContext,
   useState,
   useCallback,
-  useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 import type {
@@ -34,6 +34,7 @@ interface RoomContextValue {
   // Participant actions
   publishCard: (columnId: string, content: string) => void;
   deleteCard: (cardId: string) => void;
+  editCard: (cardId: string, content: string) => void;
   groupCards: (cardIds: string[]) => void;
   ungroupCard: (cardId: string) => void;
   toggleVote: (targetId: string, targetType: "card" | "group") => void;
@@ -74,11 +75,12 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Track the current user's ID for use in message handlers
+  const currentUserIdRef = useRef<string | null>(null);
+
   // Load stored user ID and owner key for this room
   const [storedUserId] = useState(() => loadUserId(roomId));
-  useEffect(() => {
-    loadOwnerKey(roomId);
-  }, [roomId, loadOwnerKey]);
+  const [storedOwnerKey] = useState(() => loadOwnerKey(roomId));
 
   const handleMessage = useCallback(
     (message: ServerMessage) => {
@@ -92,6 +94,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           setVoteSettingsState(message.room.voteSettings || {});
           setMyVotes(new Set(message.myVotes || []));
           setUser(message.user);
+          currentUserIdRef.current = message.user.id;
           setUsers(message.users);
           setIsLoading(false);
           setError(null);
@@ -119,6 +122,12 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
               u.id === message.userId ? { ...u, name: message.newName } : u
             )
           );
+          // Also update the current user's name in UserContext
+          if (message.userId === currentUserIdRef.current) {
+            setUser((prev: User | null) =>
+              prev ? { ...prev, name: message.newName } : prev
+            );
+          }
           // Also update author names on cards
           setCards((prev) =>
             prev.map((card) =>
@@ -141,6 +150,16 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
 
         case "card_deleted":
           setCards((prev) => prev.filter((c) => c.id !== message.cardId));
+          break;
+
+        case "card_edited":
+          setCards((prev) =>
+            prev.map((card) =>
+              card.id === message.cardId
+                ? { ...card, content: message.content }
+                : card
+            )
+          );
           break;
 
         case "cards_grouped":
@@ -309,7 +328,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           break;
       }
     },
-    [setUser]
+    [groups, roomId, saveUserId, setUser]
   );
 
   const handleConnect = useCallback(() => {
@@ -330,6 +349,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     onDisconnect: handleDisconnect,
     onError: handleError,
     userId: storedUserId ?? undefined,
+    ownerKey: storedOwnerKey ?? undefined,
   });
 
   // Helper to send messages
@@ -351,6 +371,13 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
   const deleteCard = useCallback(
     (cardId: string) => {
       sendMessage({ type: "delete_card", cardId });
+    },
+    [sendMessage]
+  );
+
+  const editCard = useCallback(
+    (cardId: string, content: string) => {
+      sendMessage({ type: "edit_card", cardId, content });
     },
     [sendMessage]
   );
@@ -498,6 +525,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     error,
     publishCard,
     deleteCard,
+    editCard,
     groupCards: groupCardsAction,
     ungroupCard,
     toggleVote: toggleVoteAction,
