@@ -944,7 +944,7 @@ export class RoomDO {
     }
   }
 
-  async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
+  async webSocketError(_ws: WebSocket, error: unknown): Promise<void> {
     console.error("WebSocket error:", error);
     // The close handler will be called after this
   }

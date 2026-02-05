@@ -328,7 +328,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           break;
       }
     },
-    [setUser]
+    [groups, roomId, saveUserId, setUser]
   );
 
   const handleConnect = useCallback(() => {

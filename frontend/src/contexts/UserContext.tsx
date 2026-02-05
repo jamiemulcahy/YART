@@ -3,7 +3,6 @@ import {
   useContext,
   useState,
   useCallback,
-  useEffect,
   type ReactNode,
   type SetStateAction,
 } from "react";
@@ -122,18 +121,6 @@ export function UserProvider({ children }: UserProviderProps) {
   const clearDraftCards = useCallback(() => {
     setDraftCards([]);
   }, []);
-
-  // Update user.isOwner when ownerKey changes
-  useEffect(() => {
-    setUser((currentUser) => {
-      if (!currentUser) return null;
-      const shouldBeOwner = !!ownerKey;
-      if (currentUser.isOwner !== shouldBeOwner) {
-        return { ...currentUser, isOwner: shouldBeOwner };
-      }
-      return currentUser;
-    });
-  }, [ownerKey]);
 
   const value: UserContextValue = {
     user,
