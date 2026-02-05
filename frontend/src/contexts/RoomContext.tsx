@@ -3,7 +3,6 @@ import {
   useContext,
   useState,
   useCallback,
-  useEffect,
   useRef,
   type ReactNode,
 } from "react";
@@ -81,9 +80,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
 
   // Load stored user ID and owner key for this room
   const [storedUserId] = useState(() => loadUserId(roomId));
-  useEffect(() => {
-    loadOwnerKey(roomId);
-  }, [roomId, loadOwnerKey]);
+  const [storedOwnerKey] = useState(() => loadOwnerKey(roomId));
 
   const handleMessage = useCallback(
     (message: ServerMessage) => {
@@ -352,6 +349,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     onDisconnect: handleDisconnect,
     onError: handleError,
     userId: storedUserId ?? undefined,
+    ownerKey: storedOwnerKey ?? undefined,
   });
 
   // Helper to send messages

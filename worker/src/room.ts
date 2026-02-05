@@ -137,11 +137,14 @@ export class RoomDO {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
 
-      // Check for userId in URL for identity restoration
+      // Check for userId and ownerKey in URL for identity restoration
       const requestedUserId = url.searchParams.get("userId");
+      const requestedOwnerKey = url.searchParams.get("ownerKey");
 
       // Try to restore user identity from stored userId
       let user: User;
+      const isOwner =
+        !!requestedOwnerKey && this.validateOwnerKey(requestedOwnerKey);
 
       if (requestedUserId) {
         // Check if this userId is already connected (prevent duplicates)
@@ -163,14 +166,14 @@ export class RoomDO {
             user = {
               id: requestedUserId,
               name: restoredName,
-              isOwner: false,
+              isOwner,
             };
           } else {
             // User ID exists but no stored name - create new user with requested ID
             user = {
               id: requestedUserId,
               name: generateAnonymousName(),
-              isOwner: false,
+              isOwner,
             };
           }
         } else {
@@ -178,7 +181,7 @@ export class RoomDO {
           user = {
             id: generateId(16),
             name: generateAnonymousName(),
-            isOwner: false,
+            isOwner,
           };
         }
       } else {
@@ -186,7 +189,7 @@ export class RoomDO {
         user = {
           id: generateId(16),
           name: generateAnonymousName(),
-          isOwner: false,
+          isOwner,
         };
       }
 
