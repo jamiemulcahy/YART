@@ -1201,6 +1201,54 @@
   color: #888;
 }
 
+.card-content.editable {
+  cursor: pointer;
+}
+
+.card-content.editable:hover {
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 4px;
+  margin: -2px;
+  padding: 2px;
+}
+
+.card-edit-textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #667eea;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 0.875rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 60px;
+  box-sizing: border-box;
+  margin-bottom: 0.5rem;
+}
+
+.card-edit-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.card-edit-btn {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.card-edit-btn:hover {
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
 .card-delete-btn {
   margin-left: auto;
   padding: 0.25rem 0.5rem;

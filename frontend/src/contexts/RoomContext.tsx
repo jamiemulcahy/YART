@@ -35,6 +35,7 @@ interface RoomContextValue {
   // Participant actions
   publishCard: (columnId: string, content: string) => void;
   deleteCard: (cardId: string) => void;
+  editCard: (cardId: string, content: string) => void;
   groupCards: (cardIds: string[]) => void;
   ungroupCard: (cardId: string) => void;
   toggleVote: (targetId: string, targetType: "card" | "group") => void;
@@ -152,6 +153,16 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
 
         case "card_deleted":
           setCards((prev) => prev.filter((c) => c.id !== message.cardId));
+          break;
+
+        case "card_edited":
+          setCards((prev) =>
+            prev.map((card) =>
+              card.id === message.cardId
+                ? { ...card, content: message.content }
+                : card
+            )
+          );
           break;
 
         case "cards_grouped":
@@ -366,6 +377,13 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     [sendMessage]
   );
 
+  const editCard = useCallback(
+    (cardId: string, content: string) => {
+      sendMessage({ type: "edit_card", cardId, content });
+    },
+    [sendMessage]
+  );
+
   const groupCardsAction = useCallback(
     (cardIds: string[]) => {
       sendMessage({ type: "group_cards", cardIds });
@@ -509,6 +527,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
     error,
     publishCard,
     deleteCard,
+    editCard,
     groupCards: groupCardsAction,
     ungroupCard,
     toggleVote: toggleVoteAction,

@@ -322,6 +322,14 @@ export class RoomDO {
         await this.handleDeleteCard(ws, data.cardId as string);
         break;
 
+      case "edit_card":
+        await this.handleEditCard(
+          ws,
+          data.cardId as string,
+          data.content as string
+        );
+        break;
+
       case "group_cards":
         await this.handleGroupCards(data.cardIds as string[]);
         break;
@@ -550,6 +558,51 @@ export class RoomDO {
     await this.state.storage.put("room", this.room);
 
     this.broadcast(JSON.stringify({ type: "card_deleted", cardId }));
+  }
+
+  private async handleEditCard(
+    ws: WebSocket,
+    cardId: string,
+    content: string
+  ): Promise<void> {
+    if (!this.room || !cardId || !content?.trim()) return;
+
+    const user = this.getUser(ws);
+    if (!user) return;
+
+    const card = this.room.cards.find((c) => c.id === cardId);
+    if (!card) return;
+
+    // Only allow users to edit their own cards
+    if (card.authorId !== user.id) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          code: "UNAUTHORIZED",
+          message: "You can only edit your own cards",
+        })
+      );
+      return;
+    }
+
+    const trimmedContent = content.trim();
+    if (trimmedContent.length > 1000) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          code: "CONTENT_TOO_LONG",
+          message: "Card content cannot exceed 1000 characters",
+        })
+      );
+      return;
+    }
+
+    card.content = trimmedContent;
+    await this.state.storage.put("room", this.room);
+
+    this.broadcast(
+      JSON.stringify({ type: "card_edited", cardId, content: trimmedContent })
+    );
   }
 
   private async handleGroupCards(cardIds: string[]): Promise<void> {
