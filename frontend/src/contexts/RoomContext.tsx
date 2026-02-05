@@ -3,6 +3,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   useRef,
   type ReactNode,
 } from "react";
@@ -80,7 +81,20 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
 
   // Load stored user ID and owner key for this room
   const [storedUserId] = useState(() => loadUserId(roomId));
-  const [storedOwnerKey] = useState(() => loadOwnerKey(roomId));
+  // Read ownerKey directly from localStorage to avoid setState during render
+  const [storedOwnerKey] = useState(() => {
+    try {
+      return localStorage.getItem(`yart_owner_key_${roomId}`);
+    } catch {
+      return null;
+    }
+  });
+  // Sync the ownerKey into UserContext state (after render)
+  useEffect(() => {
+    if (storedOwnerKey) {
+      loadOwnerKey(roomId);
+    }
+  }, [storedOwnerKey, roomId, loadOwnerKey]);
 
   const handleMessage = useCallback(
     (message: ServerMessage) => {
