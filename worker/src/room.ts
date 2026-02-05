@@ -36,6 +36,7 @@ interface RoomState {
   focusedCardId: string | null;
   voteSettings: VoteSettings;
   userVotes: Record<string, Record<string, boolean>>; // userId -> targetId -> voted
+  userNames: Record<string, string>; // userId -> last known name
   createdAt: string;
 }
 
@@ -104,6 +105,7 @@ export class RoomDO {
         focusedCardId: null,
         voteSettings: {},
         userVotes: {},
+        userNames: {},
         createdAt: new Date().toISOString(),
       };
 
@@ -150,19 +152,21 @@ export class RoomDO {
         });
 
         if (!alreadyConnected) {
-          // Check if this userId authored any cards
+          // Restore user name: prefer stored name, fall back to card author name
+          const storedName = (this.room.userNames || {})[requestedUserId];
           const userCard = this.room.cards.find(
             (c) => c.authorId === requestedUserId
           );
-          if (userCard) {
+          const restoredName = storedName || userCard?.authorName;
+          if (restoredName) {
             // Restore user with their previous name
             user = {
               id: requestedUserId,
-              name: userCard.authorName,
+              name: restoredName,
               isOwner: false,
             };
           } else {
-            // User ID exists but no cards - create new user with requested ID
+            // User ID exists but no stored name - create new user with requested ID
             user = {
               id: requestedUserId,
               name: generateAnonymousName(),
@@ -189,6 +193,11 @@ export class RoomDO {
       // Accept WebSocket with hibernation API and attach user data
       this.state.acceptWebSocket(server);
       this.setUser(server, user);
+
+      // Track user name for reconnection
+      if (!this.room.userNames) this.room.userNames = {};
+      this.room.userNames[user.id] = user.name;
+      await this.state.storage.put("room", this.room);
 
       // Get all users including the new one
       const allUsers = this.getAllUsers();
@@ -812,6 +821,10 @@ export class RoomDO {
     // Update user name
     user.name = trimmedName;
     this.setUser(ws, user);
+
+    // Persist user name for reconnection
+    if (!this.room.userNames) this.room.userNames = {};
+    this.room.userNames[user.id] = trimmedName;
 
     // Update author name on all cards by this user
     for (const card of this.room.cards) {

@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import type { User, DraftCard } from "../types";
 import { generateId } from "../utils";
@@ -16,7 +17,7 @@ interface UserContextValue {
   user: User | null;
   ownerKey: string | null;
   draftCards: DraftCard[];
-  setUser: (user: User | null) => void;
+  setUser: (user: SetStateAction<User | null>) => void;
   setOwnerKey: (key: string | null, roomId?: string) => void;
   loadOwnerKey: (roomId: string) => string | null;
   saveUserId: (roomId: string, userId: string) => void;

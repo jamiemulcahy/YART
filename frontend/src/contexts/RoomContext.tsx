@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 import type {
@@ -74,6 +75,9 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Track the current user's ID for use in message handlers
+  const currentUserIdRef = useRef<string | null>(null);
+
   // Load stored user ID and owner key for this room
   const [storedUserId] = useState(() => loadUserId(roomId));
   useEffect(() => {
@@ -92,6 +96,7 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
           setVoteSettingsState(message.room.voteSettings || {});
           setMyVotes(new Set(message.myVotes || []));
           setUser(message.user);
+          currentUserIdRef.current = message.user.id;
           setUsers(message.users);
           setIsLoading(false);
           setError(null);
@@ -119,6 +124,12 @@ export function RoomProvider({ roomId, children }: RoomProviderProps) {
               u.id === message.userId ? { ...u, name: message.newName } : u
             )
           );
+          // Also update the current user's name in UserContext
+          if (message.userId === currentUserIdRef.current) {
+            setUser((prev: User | null) =>
+              prev ? { ...prev, name: message.newName } : prev
+            );
+          }
           // Also update author names on cards
           setCards((prev) =>
             prev.map((card) =>
