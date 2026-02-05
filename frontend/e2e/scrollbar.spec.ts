@@ -4,8 +4,8 @@ test.describe("Column Scrollbar", () => {
   test("column cards area is scrollable when cards overflow", async ({
     page,
   }) => {
-    // Use a smaller viewport to ensure cards overflow
-    await page.setViewportSize({ width: 800, height: 600 });
+    // Use a very small viewport to ensure cards overflow
+    await page.setViewportSize({ width: 800, height: 400 });
     // Create a room
     await page.goto("/");
     await page.getByRole("button", { name: "Create Room" }).first().click();
@@ -29,13 +29,22 @@ test.describe("Column Scrollbar", () => {
       .first();
     const addDraftBtn = page.getByRole("button", { name: "Add Draft" }).first();
 
-    for (let i = 0; i < 8; i++) {
-      await draftInput.fill(`Card number ${i + 1} with some content`);
+    for (let i = 0; i < 15; i++) {
+      await draftInput.fill(
+        `Card number ${i + 1} with enough content to take up space`
+      );
       await addDraftBtn.click();
     }
 
     // Publish all
     await page.getByRole("button", { name: /Publish All/ }).click();
+
+    // Verify overflow-y is set to auto (the CSS fix)
+    const overflowY = await page.evaluate(() => {
+      const cards = document.querySelector(".column-cards");
+      return cards ? getComputedStyle(cards).overflowY : "";
+    });
+    expect(overflowY).toBe("auto");
 
     // Verify the column-cards area is scrollable
     const isScrollable = await page.evaluate(() => {
@@ -44,12 +53,5 @@ test.describe("Column Scrollbar", () => {
       return cards.scrollHeight > cards.clientHeight;
     });
     expect(isScrollable).toBe(true);
-
-    // Verify overflow-y is auto
-    const overflowY = await page.evaluate(() => {
-      const cards = document.querySelector(".column-cards");
-      return cards ? getComputedStyle(cards).overflowY : "";
-    });
-    expect(overflowY).toBe("auto");
   });
 });
