@@ -45,8 +45,10 @@ export interface Card {
   id: string;
   laneId: string;
   groupId: string | null;
-  /** True for the viewer's own cards. Authorship is never exposed otherwise. */
+  /** True for the viewer's own cards. */
   mine: boolean;
+  /** Who wrote it; shown by name on other people's cards. */
+  authorId: string;
   /** Null while hidden from this viewer. */
   text: string | null;
   createdAt: number;

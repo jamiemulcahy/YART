@@ -579,13 +579,9 @@ export class RoomDO extends DurableObject<Env> {
         contributor();
         const card = data.cards.get(msg.id);
         if (!card) throw new Reject("NOT_FOUND", "That card no longer exists");
-        if (role === "owner") {
-          // After Defend, removing a card would silently change the votes everyone is discussing.
-          phase("write", "group", "defend");
-        } else {
-          if (card.authorId !== me.id) throw new Reject("FORBIDDEN", "That's not your card");
-          phase("write");
-        }
+        // Only the author can remove a card, and only while writing.
+        if (card.authorId !== me.id) throw new Reject("FORBIDDEN", "That's not your card");
+        phase("write");
         data.cards.delete(card.id);
         this.store.delete("card", card.id);
         this.holds.delete(card.id);
@@ -1026,6 +1022,7 @@ export class RoomDO extends DurableObject<Env> {
       laneId: c.laneId,
       groupId: c.groupId,
       mine: false,
+      authorId: c.authorId,
       text: c.text,
       createdAt: c.createdAt,
     }));
@@ -1218,6 +1215,7 @@ export class RoomDO extends DurableObject<Env> {
       laneId: c.laneId,
       groupId: c.groupId,
       mine: c.authorId === viewer,
+      authorId: c.authorId,
       text: hidden ? null : c.text,
       createdAt: c.createdAt,
     };
