@@ -80,15 +80,15 @@ Lane templates: Mad/Sad/Glad · Liked/Learned/Lacked/Longed for · Start/Stop/Co
 
 A facilitation tool only — not tied to phases and never enforces anything.
 
-- Owner sets a duration (10 s – 60 min), and can **start**, **pause**, **resume**, **reset**, **restart** at any time, any number of times.
-- Compact, in the header: the owner sees `m:ss ▶ ↺` and clicks the time to change the length (accepts `5`, `1:30`, `45s`). Participants only see it while it's in use.
+- Owner sets a duration (5 s – 60 min), and can **start**, **pause**, **resume**, **reset**, **restart** at any time, any number of times.
+- Compact, in the header: the owner sees `m:ss ▶ ↺` and clicks the time to change the length (accepts `5`, `1:30`, `45s`). Participants only see it while it's in use. Changing the length while paused keeps it paused at the new length.
 - Server state: `{ status: 'idle' | 'running' | 'paused' | 'done', durationMs, endsAt?, remainingMs? }`.
 - Clients render the countdown from `endsAt` adjusted by their measured clock offset (§12.3). Everyone sees the same time; refreshing doesn't change it.
 - At zero: every client plays an alarm sound and shows a "Time's up" state. Per-user mute toggle (persisted locally). Browsers block audio until the user has interacted with the page, so the join flow must include a click (the "Join" button counts).
 
 ## 7. Card visibility
 
-Cards start as **drafts** in a private tray at the bottom of each lane. Drafts live only in the author's browser (localStorage, survives refresh) and never reach the server until published — one at a time or "Publish all".
+Cards start as **drafts** in a private tray at the bottom of each lane — typing (Enter or Ctrl+Enter) always saves a draft; publishing is a separate click. Drafts live only in the author's browser (localStorage, survives refresh) and never reach the server until published — one at a time or "Publish all".
 
 Owner option for **published** cards, set in Setup and changeable during Write: **Visible** or **Face-down until revealed** (default: visible, since drafts already give privacy).
 
@@ -98,7 +98,7 @@ Owner option for **published** cards, set in Setup and changeable during Write: 
 - On any visibility change, the server sends each socket a fresh, **per-viewer filtered snapshot** of cards. (Simpler than "notify then client re-fetches", and the same code path as reconnect.)
 - The server filters per viewer on every card message, so hidden text never leaves the DO for anyone but the author.
 
-Lanes keep a generous minimum width (340 px) and scroll sideways when there are many. The owner picks each lane's colour in Setup; cards are tinted by their lane.
+Lanes keep a generous minimum width (600 px) and cards flow like post-its in balanced columns of uneven heights. scroll sideways when there are many. The owner picks each lane's colour in Setup; cards are tinted by their lane.
 
 ## 8. Cards and grouping
 
@@ -135,7 +135,7 @@ Lanes keep a generous minimum width (340 px) and scroll sideways when there are 
 ### 10.1 Arena
 
 - Logical coordinate space of **1000 × 1000** units, scaled to the screen. All positions in messages and scripts use these units, so every screen agrees.
-- **Each lane is a level.** Levels run back to back (owner sets 30–90 s per lane, default 30) with a 4 s "Level 2 — Sad" break between them; only that lane's topics and attackers are on the field, so tiles stay readable however many lanes there are.
+- **One lane at a time is under attack.** For 15–45 s (default 25) its topics fill the arena; then that lane flies down to safety (survivors marked SAFE) while the next lane drops in. Pressure rises lane by lane: more grunts (×1.25 → ×1.8) and more bosses (none in the opening lane).
 - Within a level, topics are laid out in a deterministic grid from a shared `layout(topics)` function (sorted by topic id) in `shared/`. Every client and the server compute identical positions.
 - Each participant has a ship on the bottom edge, moved horizontally by mouse or ←/→ (A/D). Space or click fires. Fire rate capped (e.g. 4 shots/s).
 - Topic HP = `BASE_HP + SHIELD_HP × shields`.
@@ -143,10 +143,10 @@ Lanes keep a generous minimum width (340 px) and scroll sideways when there are 
 ### 10.2 Attackers
 
 - **Grunts**: small, low HP, fast, each targets one topic.
-- **Bosses** (1 per level, 2 with 6+ players): big, slow, HP scaled with player count, travel across several topics damaging each. Need the team to gang up.
+- **Bosses** (0 in the first lane, rising to 3 in later lanes; +1 with 6+ players): big, slow, HP scaled with player count, travel across several topics damaging each. Need the team to gang up.
 - Total attacker damage and HP are tuned from player count and total shields so that, typically, unshielded topics fall and well-shielded ones survive. Tuning target (to validate in playtests): ~70 % of unshielded topics fall, top 3 topics survive ~90 % of the time.
 - Ends after the last level, or early via **End battle now** (only levels that started get fates).
-- Tuning (playtest further with a full team): topic HP 30 + 15/shield; grunts 2 HP, `2 + players` per topic, 3 strikes of 5.
+- Tuning: topic HP 25 + 15/shield; grunts 2 HP, `(2.7 + 1.3 × players) × lane intensity` per topic, 3 strikes of 6. `shared/src/battle-balance.test.ts` simulates teams of different size and skill and pins the curve: lane 1 holdable, later lanes harder, shields still matter.
 
 ### 10.3 Keeping everyone in sync (the important bit)
 
