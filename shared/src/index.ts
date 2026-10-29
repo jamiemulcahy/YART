@@ -4,5 +4,6 @@ export * from "./limits";
 export * from "./names";
 export * from "./protocol";
 export * from "./templates";
+export * from "./time";
 export * from "./topics";
 export * from "./types";
