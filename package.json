@@ -9,10 +9,10 @@
     "dev:worker": "pnpm --filter worker dev",
     "build": "pnpm --filter frontend build",
     "deploy": "cd worker && npx wrangler deploy",
-    "test": "pnpm --filter frontend test",
+    "test": "pnpm --filter @yart/shared test",
     "test:e2e": "pnpm --filter frontend test:e2e",
-    "lint": "pnpm -r lint",
-    "format": "pnpm -r format",
+    "lint": "eslint .",
+    "format": "prettier --write .",
     "typecheck": "pnpm -r typecheck",
     "prepare": "husky"
   },
@@ -20,6 +20,9 @@
     "@eslint/js": "^9.39.1",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^16.5.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.7",
     "prettier": "^3.5.3",
@@ -34,5 +37,6 @@
       "prettier --write"
     ]
   },
-  "packageManager": "pnpm@10.34.9"
+  "packageManager": "pnpm@10.34.9",
+  "type": "module"
 }
