@@ -145,7 +145,15 @@ export class RoomDO extends DurableObject<Env> {
     }
 
     if (url.pathname === "/info") {
-      return Response.json(this.data ? { exists: true, name: this.data.meta.name } : { exists: false });
+      if (!this.data) return Response.json({ exists: false });
+      const { meta } = this.data;
+      return Response.json({
+        exists: true,
+        name: meta.name,
+        phase: meta.phase,
+        lastActivity: meta.lastActivity,
+        online: this.onlineParticipants().filter((p) => p.role !== "viewer").length,
+      });
     }
 
     if (request.headers.get("Upgrade") === "websocket") {
