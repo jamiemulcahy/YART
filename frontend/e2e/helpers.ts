@@ -45,8 +45,9 @@ export async function nextPhase(owner: Page, phase: string): Promise<void> {
 export async function addCard(page: Page, lane: string, text: string): Promise<void> {
   const input = page.getByRole("textbox", { name: `New card in ${lane}` });
   await input.fill(text);
-  await input.press("Enter");
-  await expect(page.locator(".card", { hasText: text }).first()).toBeVisible();
+  // Ctrl+Enter publishes straight from the tray; plain Enter would only save a draft.
+  await input.press("Control+Enter");
+  await expect(page.locator(".card:not(.draft)", { hasText: text }).first()).toBeVisible();
 }
 
 export async function expectPhase(page: Page, phase: string): Promise<void> {

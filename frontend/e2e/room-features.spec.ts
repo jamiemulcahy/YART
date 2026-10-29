@@ -47,39 +47,86 @@ test("owner sets up lanes before the retro starts", async ({ page: owner, browse
   await expect(alice.getByRole("textbox", { name: "New card in Continue" })).toBeVisible();
 });
 
-test("shared timer: owner controls it, everyone sees it", async ({ page: owner, browser }) => {
+test("shared timer: owner controls it from the header, everyone sees it", async ({
+  page: owner,
+  browser,
+}) => {
   const code = await createRoom(owner);
   const alice = await joinRoom(browser, code);
   await expect(alice.getByRole("timer")).toHaveCount(0);
 
-  await owner.getByRole("button", { name: "⏱ Timer" }).click();
-  await owner.getByRole("button", { name: "2 min" }).click();
+  // Owner sets the length as m:ss by clicking the time.
+  await owner.getByRole("timer").click();
+  await owner.getByLabel("Timer length (m:ss)").fill("2:30");
+  await owner.getByLabel("Timer length (m:ss)").press("Enter");
+  await expect(owner.getByRole("timer")).toHaveText("2:30");
   await owner.getByRole("button", { name: "Start timer" }).click();
-  await expect(alice.getByRole("timer")).toHaveAttribute("aria-label", /Time left 1:5\d|Time left 2:00/);
+  await expect(alice.getByRole("timer")).toHaveAttribute("aria-label", /Time left 2:(2\d|30)/);
 
-  await owner.getByRole("button", { name: "Pause" }).click();
+  await owner.getByRole("button", { name: "Pause timer" }).click();
   await expect(alice.getByRole("timer")).toHaveAttribute("aria-label", /paused/);
   await alice.reload();
   await expect(alice.getByRole("timer")).toHaveAttribute("aria-label", /paused/);
-
-  await owner.getByRole("button", { name: "Resume" }).click();
+  await owner.getByRole("button", { name: "Resume timer" }).click();
   await expect(alice.getByRole("timer")).not.toHaveAttribute("aria-label", /paused/);
 
-  // A short custom timer runs out and shows "Time's up" for everyone.
-  await owner.getByLabel("Custom (min)").fill("0.2");
-  await owner.getByLabel("Custom (min)").press("Enter");
+  // A short timer runs out and shows "Time's up" for everyone.
+  await owner.getByRole("button", { name: "Reset timer" }).click();
+  await owner.getByRole("timer").click();
+  await owner.getByLabel("Timer length (m:ss)").fill("10s");
+  await owner.getByLabel("Timer length (m:ss)").press("Enter");
   await owner.getByRole("button", { name: "Start timer" }).click();
   await expect(alice.getByRole("timer", { name: "Time's up" })).toBeVisible({ timeout: 20_000 });
 
-  await owner.getByRole("button", { name: "Stop & hide" }).click();
+  await owner.getByRole("button", { name: "Reset timer" }).click();
   await expect(alice.getByRole("timer")).toHaveCount(0);
+});
+
+test("drafts stay private in your tray until published", async ({ page: owner, browser }) => {
+  const code = await createRoom(owner);
+  const alice = await joinRoom(browser, code);
+  await nextPhase(owner, "Write");
+
+  const input = alice.getByRole("textbox", { name: "New card in Mad" });
+  await input.fill("Draft one");
+  await input.press("Enter");
+  await input.fill("Draft two");
+  await input.press("Enter");
+  const tray = alice.getByLabel("Your drafts in Mad");
+  await expect(tray.getByRole("article")).toHaveCount(2);
+  await expect(owner.getByText("Draft one")).toHaveCount(0);
+
+  // Drafts survive a refresh.
+  await alice.reload();
+  await expect(alice.getByLabel("Your drafts in Mad").getByRole("article")).toHaveCount(2);
+
+  // Edit a draft, then publish one, then the rest.
+  await alice.getByRole("button", { name: "Draft one", exact: true }).click();
+  await alice.getByRole("textbox", { name: "Edit draft" }).fill("Draft one, edited");
+  await alice.getByRole("textbox", { name: "Edit draft" }).press("Enter");
+  await alice
+    .getByRole("article", { name: "Draft: Draft one, edited" })
+    .getByRole("button", { name: "Publish" })
+    .click();
+  await expect(owner.locator(".lane-board").getByText("Draft one, edited")).toBeVisible();
+  await expect(owner.getByText("Draft two")).toHaveCount(0);
+  await alice.getByRole("button", { name: /Publish all/ }).click();
+  await expect(owner.locator(".lane-board").getByText("Draft two")).toBeVisible();
+  await expect(alice.getByLabel("Your drafts in Mad").getByRole("article")).toHaveCount(0);
+});
+
+test("owner can recolour lanes", async ({ page: owner, browser }) => {
+  const code = await createRoom(owner);
+  const alice = await joinRoom(browser, code);
+  await owner.getByRole("button", { name: "Change colour of Mad" }).click();
+  await owner.getByRole("button", { name: "Colour #a855f7" }).click();
+  await expect(alice.locator(".lane-header").first()).toHaveCSS("border-top-color", "rgb(168, 85, 247)");
 });
 
 test("visible-cards mode and late cards", async ({ page: owner, browser }) => {
   const code = await createRoom(owner);
   const alice = await joinRoom(browser, code);
   await owner.getByRole("button", { name: "⚙ Settings" }).click();
-  await toggle(owner, "Hide card text until revealed", false);
   await toggle(owner, "Allow adding cards while grouping", true);
   await nextPhase(owner, "Write");
   await addCard(owner, "Mad", "Everyone sees this immediately");
@@ -95,7 +142,6 @@ test("drag a card onto another to group, then ungroup", async ({ page: owner, br
   const code = await createRoom(owner);
   const alice = await joinRoom(browser, code);
   await owner.getByRole("button", { name: "⚙ Settings" }).click();
-  await toggle(owner, "Hide card text until revealed", false);
   await nextPhase(owner, "Write");
   await addCard(owner, "Mad", "Standups run long");
   await addCard(alice, "Sad", "Too many meetings");
@@ -127,7 +173,6 @@ test("battle launches for everyone and reports results", async ({ page: owner, b
   const code = await createRoom(owner);
   const alice = await joinRoom(browser, code);
   await owner.getByRole("button", { name: "⚙ Settings" }).click();
-  await toggle(owner, "Hide card text until revealed", false);
   await nextPhase(owner, "Write");
   await addCard(alice, "Glad", "Protect me");
   await addCard(alice, "Mad", "Nobody cares about me");
@@ -151,7 +196,9 @@ test("battle launches for everyone and reports results", async ({ page: owner, b
   await alice.keyboard.up(" ");
 
   await owner.getByRole("button", { name: "End battle now" }).click();
-  await expect(alice.locator(".fates li")).toHaveCount(2);
+  // Each lane is a level; ending during level 1 (Mad) only gives Mad's topics a fate.
+  await expect(alice.locator(".fates li")).toHaveCount(1);
+  await expect(alice.locator(".fates li")).toContainText("Nobody cares about me");
   await expect(alice.getByText(/topics? survived/)).toBeVisible();
   // The battle doesn't change discussion order.
   await nextPhase(owner, "Discuss");

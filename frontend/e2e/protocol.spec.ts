@@ -23,6 +23,7 @@ test("hidden card text never reaches other participants", async () => {
   const owner = await rawSocket(code, { ownerKey });
   const author = await rawSocket(code);
   const other = await rawSocket(code);
+  owner.send({ t: "settings.update", settings: { hideCards: true } });
   owner.send({ t: "phase.set", phase: "write" });
   await other.next((m) => m.t === "snapshot" && (m.room as Msg).phase === "write");
   const lanes = (

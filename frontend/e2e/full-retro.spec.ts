@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { addCard, createRoom, expectPhase, joinRoom, nextPhase } from "./helpers";
+import { addCard, createRoom, expectPhase, joinRoom, nextPhase, toggle } from "./helpers";
 
 test("a whole retro: write, reveal, group, defend, discuss, export", async ({ page: owner, browser }) => {
   const code = await createRoom(owner, { name: "Sprint 42" });
@@ -9,6 +9,8 @@ test("a whole retro: write, reveal, group, defend, discuss, export", async ({ pa
   // Everyone shows up in the lobby.
   await expect(owner.locator(".lobby-list li")).toHaveCount(3);
 
+  await owner.getByRole("button", { name: "⚙ Settings" }).click();
+  await toggle(owner, "Keep published cards face-down until revealed", true);
   await nextPhase(owner, "Write");
   await expectPhase(alice, "Write");
 
