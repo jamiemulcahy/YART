@@ -4,6 +4,7 @@ import { PHASES, PHASE_LABELS } from "@yart/shared";
 import type { Phase } from "@yart/shared";
 import { formatCode } from "../lib/api";
 import { isMuted, setMuted } from "../lib/sounds";
+import { storage } from "../lib/storage";
 import { useRoom } from "../room/RoomContext";
 import type { ConnectionStatus } from "../room/state";
 import { Timer } from "./Timer";
@@ -29,7 +30,7 @@ const PHASE_VIEWS: Record<Phase, () => React.JSX.Element> = {
 };
 
 export function RoomShell(props: { connection: ConnectionStatus }) {
-  const { room, me, isOwner, send } = useRoom();
+  const { room, me, isOwner, isViewer, send } = useRoom();
   const [copied, setCopied] = useState(false);
   const [muted, setMutedState] = useState(isMuted());
   const [showPeople, setShowPeople] = useState(false);
@@ -101,6 +102,18 @@ export function RoomShell(props: { connection: ConnectionStatus }) {
           >
             {muted ? "🔇" : "🔊"}
           </button>
+          {isViewer && (
+            <button
+              className="btn small ghost"
+              onClick={() => {
+                // Forget the viewer identity and go back to the join screen.
+                storage.setToken(room.code, null);
+                window.location.reload();
+              }}
+            >
+              Join as participant
+            </button>
+          )}
           <button
             className="people-btn"
             onClick={() => setShowPeople((s) => !s)}

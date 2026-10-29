@@ -92,10 +92,12 @@ function AddCard(props: { lane: Lane }) {
 
 function WriteCard(props: { card: Card }) {
   const { card } = props;
-  const { send, room } = useRoom();
+  const { send, room, isOwner } = useRoom();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(card.text ?? "");
   const canEdit = card.mine && room.phase === "write";
+  // Facilitator moderation: remove anyone's card once it's readable.
+  const canModerate = isOwner && !card.mine && card.text !== null && room.phase === "write";
 
   if (editing) {
     const save = () => {
@@ -149,6 +151,17 @@ function WriteCard(props: { card: Card }) {
           </button>
           <button className="btn small ghost" onClick={() => send({ t: "card.remove", id: card.id })}>
             Delete
+          </button>
+        </div>
+      )}
+      {canModerate && (
+        <div className="card-actions">
+          <button
+            className="btn small ghost"
+            onClick={() => send({ t: "card.remove", id: card.id })}
+            aria-label={`Remove card: ${card.text ?? ""}`}
+          >
+            Remove
           </button>
         </div>
       )}
