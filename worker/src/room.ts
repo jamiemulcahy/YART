@@ -477,8 +477,9 @@ export class RoomDO extends DurableObject<Env> {
 
       case "timer.set": {
         owner();
+        // Changing the length while paused keeps it paused, ready to resume from the new length.
         meta.timer = {
-          status: "idle",
+          status: meta.timer.status === "paused" ? "paused" : "idle",
           durationMs: msg.durationMs,
           endsAt: null,
           remainingMs: msg.durationMs,
@@ -1056,7 +1057,11 @@ export class RoomDO extends DurableObject<Env> {
       shields: totals,
       players,
       startsAt,
-      levelMs: data.meta.settings.battleDurationSec * 1000,
+      levelMs:
+        Math.min(
+          LIMITS.battleDurationMaxSec,
+          Math.max(LIMITS.battleDurationMinSec, data.meta.settings.battleDurationSec)
+        ) * 1000,
       rand: seededRandom(seed),
     });
     const endsAt = levels.at(-1)?.endsAt ?? startsAt;

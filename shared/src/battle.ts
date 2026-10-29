@@ -15,13 +15,13 @@ export const BULLET_SPEED = 1500; // units/s
 export const FIRE_INTERVAL_MS = 220;
 export const MAX_BATTLE_TOPICS = 40;
 export const COUNTDOWN_MS = 3500;
-/** Breather between levels, shown as "Level 2 — Sad". */
-export const LEVEL_GAP_MS = 4000;
+/** The finished lane flies down to safety while the next one arrives. */
+export const LEVEL_GAP_MS = 3000;
 
-export const BASE_TOPIC_HP = 30;
+export const BASE_TOPIC_HP = 25;
 export const SHIELD_HP = 15;
 
-export const GRUNT = { hp: 2, radius: 24, speed: 210, strikes: 3, strikeGapMs: 1000, dmg: 5 } as const;
+export const GRUNT = { hp: 2, radius: 24, speed: 230, strikes: 3, strikeGapMs: 900, dmg: 6 } as const;
 export const BOSS = {
   radius: 64,
   speed: 85,
@@ -148,23 +148,38 @@ export interface ScriptParams {
   level?: number;
   /** First attacker id to use, so ids stay unique across levels. */
   firstId?: number;
+  /** Multiplies grunt numbers and boss toughness; rises lane by lane. */
+  intensity?: number;
+  /** Bosses for this window (defaults to bossCount). */
+  bosses?: number;
 }
 
 function travel(from: { x: number; y: number }, to: { x: number; y: number }, speed: number): number {
   return (Math.hypot(to.x - from.x, to.y - from.y) / speed) * 1000;
 }
 
-export function gruntsPerTopic(players: number): number {
-  return 2 + Math.max(1, players);
+export function gruntsPerTopic(players: number, intensity = 1): number {
+  return Math.round((2.7 + 1.3 * Math.max(1, players)) * intensity);
 }
 
-/** Bosses per level. */
+/** Bosses for a single-window battle. */
 export function bossCount(players: number): number {
   return players >= 6 ? 2 : 1;
 }
 
+/** Pressure builds lane by lane: more grunts, tougher and more numerous bosses. */
+export function laneIntensity(level: number): number {
+  return Math.min(1.8, 1.25 + 0.12 * level);
+}
+
+export function laneBosses(level: number, levels: number, players: number): number {
+  // The opening lane is a warm-up unless it's the only one.
+  if (level === 0 && levels > 1) return 0;
+  return Math.min(3, 1 + Math.floor((level - 1) / 3) + (players >= 6 ? 1 : 0));
+}
+
 export function bossHp(players: number): number {
-  return 15 + 15 * Math.max(1, players);
+  return 10 + 12 * Math.max(1, players);
 }
 
 export function generateScript(p: ScriptParams): AttackerScript[] {
@@ -172,10 +187,11 @@ export function generateScript(p: ScriptParams): AttackerScript[] {
   const out: AttackerScript[] = [];
   if (tiles.length === 0) return out;
   const players = Math.max(1, p.players);
-  const perTopic = gruntsPerTopic(players);
-  const firstSpawn = p.startsAt + 1000;
-  // Leave time for the last grunts to arrive and strike before the end.
-  const lastSpawn = Math.max(firstSpawn + 1000, p.endsAt - 9000);
+  const intensity = p.intensity ?? 1;
+  const perTopic = gruntsPerTopic(players, intensity);
+  const firstSpawn = p.startsAt + 300;
+  // Leave time for the last grunts to arrive and strike before the lane escapes.
+  const lastSpawn = Math.max(firstSpawn + 1000, p.endsAt - 7500);
   let nextId = p.firstId ?? 0;
   const level = p.level ?? 0;
 
@@ -217,16 +233,16 @@ export function generateScript(p: ScriptParams): AttackerScript[] {
         { ...hover, at: tDone },
         { ...exit, at: tDone + travel(hover, exit, GRUNT.speed * 1.6) },
       ],
-      strikes,
+      strikes: strikes.filter((st) => st.at < p.endsAt),
     });
   }
 
   // Bosses go after the most-shielded topics first, then wander.
   const byShields = [...tiles].sort((a, b) => (p.shields[b.topicId] ?? 0) - (p.shields[a.topicId] ?? 0));
-  const bosses = bossCount(players);
+  const bosses = p.bosses ?? bossCount(players);
   const window = p.endsAt - p.startsAt;
   for (let b = 0; b < bosses; b++) {
-    const at = p.startsAt + 4000 + (b * window * 0.7) / bosses;
+    const at = p.startsAt + 1500 + (b * window * 0.5) / Math.max(1, bosses);
     const visits: TopicTile[] = [];
     const favourite = byShields[b % byShields.length] as TopicTile;
     visits.push(favourite);
@@ -254,7 +270,7 @@ export function generateScript(p: ScriptParams): AttackerScript[] {
       id: nextId++,
       kind: "boss",
       level,
-      hp: bossHp(players),
+      hp: Math.round(bossHp(players) * (0.85 + 0.15 * intensity)),
       waypoints,
       // A boss still loitering when its level ends stops doing damage.
       strikes: strikes.filter((st) => st.at < p.endsAt),
@@ -281,7 +297,10 @@ export interface BattlePlanParams {
   rand: () => number;
 }
 
-/** Each lane is a level: its topics fill the arena, then the next lane's take over. */
+/**
+ * One lane at a time is under attack. When its time is up it flies down to safety and the next
+ * lane moves in, with the pressure rising each time.
+ */
 export function planBattle(p: BattlePlanParams): {
   levels: BattleLevel[];
   tiles: TopicTile[];
@@ -307,6 +326,8 @@ export function planBattle(p: BattlePlanParams): {
         rand: p.rand,
         level,
         firstId: script.length,
+        intensity: laneIntensity(level),
+        bosses: laneBosses(level, p.lanes.length, p.players),
       })
     );
     at = endsAt + LEVEL_GAP_MS;

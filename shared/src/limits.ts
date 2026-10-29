@@ -16,13 +16,13 @@ export const LIMITS = {
   actionAssignee: 60,
   actionsPerRoom: 100,
   messageBytes: 4096,
-  timerMinMs: 10_000,
+  timerMinMs: 5_000,
   timerMaxMs: 60 * 60_000,
   shieldsPerPersonMin: 1,
   shieldsPerPersonMax: 20,
-  /** Seconds per battle level (one level per lane). */
-  battleDurationMinSec: 30,
-  battleDurationMaxSec: 90,
+  /** Seconds each lane is under attack in the battle. */
+  battleDurationMinSec: 15,
+  battleDurationMaxSec: 45,
   /** Sustained inbound messages per second, per socket. */
   ratePerSec: 20,
   rateBurst: 40,
@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS = {
   shieldsPerPerson: 5,
   maxShieldsPerTopic: 3,
   showShieldTotals: false,
-  battleDurationSec: 30,
+  battleDurationSec: 25,
   showBattleStats: true,
 } as const;
 
