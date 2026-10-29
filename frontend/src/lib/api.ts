@@ -36,6 +36,8 @@ export function formatCode(code: string): string {
   return code.length === 6 ? `${code.slice(0, 3)}-${code.slice(3)}` : code;
 }
 
+/** Accepts a code ("k7m-qx2") or a pasted invite link (".../r/K7MQX2"). */
 export function normaliseCode(input: string): string {
-  return input.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const fromLink = input.match(/\/r\/([^/?#\s]+)/);
+  return (fromLink?.[1] ?? input).toUpperCase().replace(/[^A-Z0-9]/g, "");
 }

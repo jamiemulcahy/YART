@@ -87,7 +87,7 @@ export function Landing() {
         <form className="panel" onSubmit={onJoin} aria-labelledby="join-heading">
           <h2 id="join-heading">Join a retro</h2>
           <label className="field">
-            <span>Room code</span>
+            <span>Room code or invite link</span>
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -95,7 +95,7 @@ export function Landing() {
               autoCapitalize="characters"
               autoComplete="off"
               className="code-input"
-              maxLength={12}
+              maxLength={200}
             />
           </label>
           <button className="btn big" type="submit">

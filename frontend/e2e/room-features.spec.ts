@@ -173,7 +173,10 @@ test("unknown room shows a friendly message", async ({ page }) => {
   await page.goto("/r/ZZZZZZ");
   await expect(page.getByRole("heading", { name: "Room not found" })).toBeVisible();
   await page.goto("/");
-  await page.getByLabel("Room code").fill("abc");
+  await page.getByLabel("Room code or invite link").fill("abc");
   await page.getByRole("button", { name: "Join room" }).click();
   await expect(page.getByRole("alert")).toContainText("Room codes are 6 characters");
+  await page.getByLabel("Room code or invite link").fill("https://yart.example/r/ZZZ-ZZZ?x=1");
+  await page.getByRole("button", { name: "Join room" }).click();
+  await expect(page).toHaveURL(/\/r\/ZZZZZZ$/);
 });
