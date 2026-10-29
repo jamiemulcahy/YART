@@ -13,7 +13,7 @@ export async function createRoom(
   if (opts.template) await page.getByText(opts.template, { exact: true }).click();
   await page.getByRole("button", { name: "Create room" }).click();
   await page.waitForURL(/\/r\/[A-Z0-9]{6}$/);
-  await expect(page.getByText("Facilitator")).toBeVisible();
+  await expect(page.getByText("Facilitator", { exact: true })).toBeVisible();
   return page.url().split("/r/")[1] as string;
 }
 
@@ -109,4 +109,11 @@ export async function apiCreateRoom(
     body: JSON.stringify({ name: "API room", lanes }),
   });
   return (await res.json()) as { code: string; ownerKey: string };
+}
+
+/** Settings checkboxes reflect server state, so click and wait for the round trip. */
+export async function toggle(page: Page, label: string, checked: boolean): Promise<void> {
+  const box = page.getByLabel(label);
+  if ((await box.isChecked()) !== checked) await box.click();
+  await expect(box).toBeChecked({ checked });
 }

@@ -34,4 +34,9 @@ export default defineConfig([
     files: ["frontend/e2e/**/*.ts", "frontend/*.config.ts"],
     languageOptions: { globals: globals.node },
   },
+  {
+    // Tests assert on shapes they just built; non-null assertions keep them readable.
+    files: ["**/*.test.ts", "frontend/e2e/**/*.ts"],
+    rules: { "@typescript-eslint/no-non-null-assertion": "off" },
+  },
 ]);
