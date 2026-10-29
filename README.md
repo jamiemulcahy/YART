@@ -37,14 +37,14 @@ YART helps teams run effective retrospective meetings with a streamlined, collab
 
 YART guides your retro through several phases:
 
-| Mode | Description |
-|------|-------------|
-| **Edit** | Room owner sets up columns and structure |
-| **Publish** | All members add and publish cards to columns |
-| **Group** | Collaboratively group related cards together |
-| **Vote** | Swipe to vote on which topics to discuss |
-| **Focus** | Discuss prioritised cards one-by-one as a team |
-| **Overview** | Review the complete retro and export summary |
+| Mode         | Description                                    |
+| ------------ | ---------------------------------------------- |
+| **Edit**     | Room owner sets up columns and structure       |
+| **Publish**  | All members add and publish cards to columns   |
+| **Group**    | Collaboratively group related cards together   |
+| **Vote**     | Swipe to vote on which topics to discuss       |
+| **Focus**    | Discuss prioritised cards one-by-one as a team |
+| **Overview** | Review the complete retro and export summary   |
 
 ## Documentation
 
