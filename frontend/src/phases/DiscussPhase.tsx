@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { LIMITS, rankTopics } from "@yart/shared";
 import type { ActionItem, Topic } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
+import { laneVar } from "../lib/style";
 import { CardText, PhaseIntro } from "../components/common";
 
 export function DiscussPhase() {
@@ -121,7 +122,7 @@ function OpenTopic(props: { topic: Topic; rank: number }) {
         {topic.cards.map((c) => {
           const lane = lanes.get(c.laneId);
           return (
-            <li key={c.id} className="card" style={{ borderLeftColor: lane?.colour }}>
+            <li key={c.id} className="card" style={laneVar(lane?.colour)}>
               <span className="lane-tag" style={{ color: lane?.colour }}>
                 {lane?.title}
               </span>

@@ -34,7 +34,11 @@ export function BattlePhase() {
     const ranked = rankTopics(topics, room.shields.totals ?? {}).filter((t) => results.fates[t.id]);
     return (
       <div className="phase battle results">
-        <PhaseIntro title={survived > fell ? "The line held!" : "Heavy losses!"}>
+        <PhaseIntro
+          title={
+            survived + fell === 0 ? "Battle called off" : survived > fell ? "The line held!" : "Heavy losses!"
+          }
+        >
           {survived} topics survived, {fell} fell. Don't worry — the battle doesn't change anything: topics
           are still discussed in shield order.
         </PhaseIntro>
@@ -86,8 +90,8 @@ export function BattlePhase() {
         }
       >
         Your shields became armour: every topic starts with {BASE_TOPIC_HP} HP plus {SHIELD_HP} per shield.
-        Work together to shoot down the invaders before they wreck the board. Bosses need the whole team. This
-        is just for fun — it won't change the discussion order.
+        Each lane is a level. Work together to shoot down the invaders before they wreck the board — bosses
+        need the whole team. This is just for fun — it won't change the discussion order.
       </PhaseIntro>
       <div className="briefing-grid">
         <section className="panel">

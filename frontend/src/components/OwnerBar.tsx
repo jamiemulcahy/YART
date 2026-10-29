@@ -2,14 +2,10 @@ import { useState } from "react";
 import { LIMITS, PHASES, PHASE_LABELS } from "@yart/shared";
 import type { Phase, SettingsPatch } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
-import { formatDuration } from "../lib/format";
-
-const TIMER_PRESETS = [1, 2, 3, 5, 10, 15];
 
 export function OwnerBar() {
   const { room, send, battle } = useRoom();
   const [showSettings, setShowSettings] = useState(false);
-  const [showTimer, setShowTimer] = useState(false);
   const index = PHASES.indexOf(room.phase);
   const prev: Phase | undefined = room.phase === "discuss" ? "defend" : PHASES[index - 1];
   const next: Phase | undefined = PHASES[index + 1];
@@ -58,9 +54,6 @@ export function OwnerBar() {
             </button>
           )}
 
-          <button className="btn ghost" onClick={() => setShowTimer((s) => !s)} aria-expanded={showTimer}>
-            ⏱ Timer
-          </button>
           <button
             className="btn ghost"
             onClick={() => setShowSettings((s) => !s)}
@@ -81,79 +74,8 @@ export function OwnerBar() {
           )}
         </div>
       </div>
-      {showTimer && <TimerControls />}
       {showSettings && <SettingsPanel />}
     </section>
-  );
-}
-
-function TimerControls() {
-  const { room, send, now } = useRoom();
-  const timer = room.timer;
-  const finished = timer.status === "done" || (timer.status === "running" && (timer.endsAt ?? 0) <= now());
-  const [custom, setCustom] = useState(String(Math.round(timer.durationMs / 60_000)));
-
-  const setMinutes = (minutes: number) => {
-    const ms = Math.round(minutes * 60_000);
-    if (ms < LIMITS.timerMinMs || ms > LIMITS.timerMaxMs) return;
-    send({ t: "timer.set", durationMs: ms });
-  };
-
-  return (
-    <div className="owner-panel" aria-label="Timer controls">
-      <div className="timer-presets" role="group" aria-label="Timer length">
-        {TIMER_PRESETS.map((m) => (
-          <button
-            key={m}
-            className={`chip ${timer.durationMs === m * 60_000 ? "selected" : ""}`}
-            onClick={() => setMinutes(m)}
-          >
-            {m} min
-          </button>
-        ))}
-        <label className="inline-field">
-          <span>Custom (min)</span>
-          <input
-            type="number"
-            min={0.5}
-            max={60}
-            step={0.5}
-            value={custom}
-            onChange={(e) => setCustom(e.target.value)}
-            onBlur={() => setMinutes(Number(custom))}
-            onKeyDown={(e) => e.key === "Enter" && setMinutes(Number(custom))}
-          />
-        </label>
-      </div>
-      <div className="timer-buttons">
-        <span className="muted">Length {formatDuration(timer.durationMs)}</span>
-        {(timer.status === "idle" || finished) && (
-          <button className="btn primary" onClick={() => send({ t: "timer.start" })}>
-            Start timer
-          </button>
-        )}
-        {timer.status === "running" && !finished && (
-          <>
-            <button className="btn" onClick={() => send({ t: "timer.pause" })}>
-              Pause
-            </button>
-            <button className="btn ghost" onClick={() => send({ t: "timer.start" })}>
-              Restart
-            </button>
-          </>
-        )}
-        {timer.status === "paused" && (
-          <button className="btn primary" onClick={() => send({ t: "timer.resume" })}>
-            Resume
-          </button>
-        )}
-        {timer.status !== "idle" && (
-          <button className="btn ghost" onClick={() => send({ t: "timer.reset" })}>
-            Stop &amp; hide
-          </button>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -171,7 +93,7 @@ function SettingsPanel() {
           checked={s.hideCards}
           onChange={(e) => update({ hideCards: e.target.checked })}
         />
-        <span>Hide card text until revealed</span>
+        <span>Keep published cards face-down until revealed</span>
       </label>
       <label className="toggle">
         <input
@@ -225,12 +147,12 @@ function SettingsPanel() {
         />
       </label>
       <label className="inline-field">
-        <span>Battle length</span>
+        <span>Battle time per lane</span>
         <select
           value={s.battleDurationSec}
           onChange={(e) => update({ battleDurationSec: Number(e.target.value) })}
         >
-          {[60, 90, 120, 180].map((n) => (
+          {[30, 40, 60, 90].map((n) => (
             <option key={n} value={n}>
               {n}s
             </option>

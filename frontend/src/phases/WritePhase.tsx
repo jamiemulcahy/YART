@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { LIMITS } from "@yart/shared";
 import type { Card, Lane } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
+import { useDrafts } from "../room/drafts";
+import type { Draft } from "../room/drafts";
+import { laneVar } from "../lib/style";
 import { CardText, HiddenCardText, LaneHeader, PhaseIntro } from "../components/common";
+
+const PUBLISH_TIMEOUT_MS = 6000;
+const PUBLISH_GAP_MS = 80;
 
 export function WritePhase() {
   const { room, isViewer } = useRoom();
@@ -14,15 +20,14 @@ export function WritePhase() {
     <div className="phase write">
       <PhaseIntro
         title="Write your thoughts"
-        aside={!isViewer && <span className="stat">You've written {mine}</span>}
+        aside={!isViewer && <span className="stat">You've published {mine}</span>}
       >
-        One idea per card.{" "}
+        One idea per card. Drafts in your tray are private until you publish them.{" "}
         {hidden
-          ? "Nobody can read your cards until the facilitator reveals them."
-          : "Everyone can see cards as they're added."}{" "}
-        {!isViewer && "Press Enter to add, Shift+Enter for a new line."}
+          ? "Published cards stay face-down until the facilitator reveals them."
+          : "Published cards are visible to everyone."}
       </PhaseIntro>
-      <div className="lanes">
+      <div className="lanes write-lanes">
         {room.lanes.map((lane) => (
           <WriteLane key={lane.id} lane={lane} cards={room.cards.filter((c) => c.laneId === lane.id)} />
         ))}
@@ -31,62 +36,203 @@ export function WritePhase() {
   );
 }
 
-export function WriteLane(props: { lane: Lane; cards: Card[] }) {
+export function WriteLane(props: { lane: Lane; cards: Card[]; trayOnly?: boolean }) {
   const { lane } = props;
   const { isViewer } = useRoom();
   const cards = [...props.cards].sort((a, b) => a.createdAt - b.createdAt);
   return (
-    <section className="lane" aria-label={lane.title}>
-      <LaneHeader lane={lane} count={cards.length} />
-      {!isViewer && <AddCard lane={lane} />}
-      <ul className="card-list">
-        {cards.map((card) => (
-          <li key={card.id}>
-            <WriteCard card={card} />
-          </li>
-        ))}
-      </ul>
+    <section className="lane write-lane" aria-label={lane.title} style={laneVar(lane.colour)}>
+      <LaneHeader lane={lane} count={props.trayOnly ? undefined : cards.length} />
+      {!props.trayOnly && (
+        <ul className="card-list lane-board">
+          {cards.map((card) => (
+            <li key={card.id}>
+              <WriteCard card={card} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {!isViewer && <DraftTray lane={lane} />}
     </section>
   );
 }
 
-function AddCard(props: { lane: Lane }) {
-  const { send } = useRoom();
+function DraftTray(props: { lane: Lane }) {
+  const { lane } = props;
+  const { room, send } = useRoom();
+  const { drafts, canAdd, add, update, remove, markPublishing, clearPublishing } = useDrafts(
+    room.code,
+    lane.id
+  );
   const [text, setText] = useState("");
-  const submit = (e?: FormEvent) => {
+  const [tick, setTick] = useState(0);
+
+  // A draft is done once our matching card shows up on the board; give up waiting after a while
+  // (the server will have explained why in a toast).
+  useEffect(() => {
+    const now = Date.now();
+    const published = room.cards.filter((c) => c.mine && c.laneId === lane.id).map((c) => c.text);
+    for (const d of drafts) {
+      if (!d.publishingAt) continue;
+      const i = published.indexOf(d.text.trim());
+      if (i !== -1) {
+        published.splice(i, 1);
+        remove(d.id);
+      } else if (now - d.publishingAt > PUBLISH_TIMEOUT_MS + drafts.length * PUBLISH_GAP_MS) {
+        clearPublishing([d.id]);
+      }
+    }
+  }, [room.cards, drafts, lane.id, remove, clearPublishing, tick]);
+
+  const publish = (list: Draft[]) => {
+    const ready = list.filter((d) => !d.publishingAt && d.text.trim());
+    if (ready.length === 0) return;
+    markPublishing(ready.map((d) => d.id));
+    // Stagger so "Publish all" stays well inside the server's rate limit.
+    ready.forEach((d, i) =>
+      setTimeout(() => send({ t: "card.add", laneId: lane.id, text: d.text.trim() }), i * PUBLISH_GAP_MS)
+    );
+    setTimeout(() => setTick((t) => t + 1), PUBLISH_TIMEOUT_MS + ready.length * PUBLISH_GAP_MS);
+  };
+
+  const submit = (e?: FormEvent, publishNow = false) => {
     e?.preventDefault();
     const value = text.trim();
     if (!value) return;
-    send({ t: "card.add", laneId: props.lane.id, text: value });
+    if (publishNow) send({ t: "card.add", laneId: lane.id, text: value });
+    else add(value);
     setText("");
   };
+
   return (
-    <form className="add-card" onSubmit={submit}>
-      <textarea
-        aria-label={`New card in ${props.lane.title}`}
-        placeholder={props.lane.description || `Add to ${props.lane.title}…`}
-        value={text}
-        maxLength={LIMITS.cardText}
-        rows={2}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            submit();
-          }
-        }}
-      />
-      <div className="add-card-foot">
-        {text.length > LIMITS.cardText * 0.8 && (
-          <span className="muted">
-            {text.length}/{LIMITS.cardText}
-          </span>
+    <div className="tray" aria-label={`Your drafts in ${lane.title}`}>
+      <div className="tray-head">
+        <span className="tray-title">🔒 Your drafts</span>
+        {drafts.length > 0 && (
+          <button className="btn small" onClick={() => publish(drafts)}>
+            Publish all ({drafts.length})
+          </button>
         )}
-        <button className="btn small" type="submit" disabled={!text.trim()}>
-          Add
+      </div>
+      {drafts.length > 0 && (
+        <ul className="card-list drafts">
+          {drafts.map((d) => (
+            <li key={d.id}>
+              <DraftCard
+                draft={d}
+                laneTitle={lane.title}
+                onSave={(t) => update(d.id, t)}
+                onDelete={() => remove(d.id)}
+                onPublish={() => publish([d])}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="add-card" onSubmit={submit}>
+        <textarea
+          aria-label={`New card in ${lane.title}`}
+          placeholder={canAdd ? lane.description || `Add to ${lane.title}…` : "Draft limit reached"}
+          disabled={!canAdd}
+          value={text}
+          maxLength={LIMITS.cardText}
+          rows={2}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              submit(undefined, e.ctrlKey || e.metaKey);
+            }
+          }}
+        />
+        <div className="add-card-foot">
+          <span className="muted hint" title="Enter saves a draft; Ctrl+Enter publishes now">
+            ↵ draft · Ctrl+↵ publish
+          </span>
+          {text.length > LIMITS.cardText * 0.8 && (
+            <span className="muted">
+              {text.length}/{LIMITS.cardText}
+            </span>
+          )}
+          <button className="btn small ghost" type="submit" disabled={!text.trim()}>
+            Draft
+          </button>
+          <button
+            className="btn small"
+            type="button"
+            disabled={!text.trim()}
+            onClick={() => submit(undefined, true)}
+          >
+            Publish
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function DraftCard(props: {
+  draft: Draft;
+  laneTitle: string;
+  onSave: (text: string) => void;
+  onDelete: () => void;
+  onPublish: () => void;
+}) {
+  const { draft } = props;
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(draft.text);
+  const save = () => {
+    const value = text.trim();
+    if (value) props.onSave(value);
+    setEditing(false);
+  };
+  return (
+    <article
+      className={`card draft ${draft.publishingAt ? "publishing" : ""}`}
+      aria-label={`Draft: ${draft.text}`}
+    >
+      {editing ? (
+        <textarea
+          aria-label="Edit draft"
+          value={text}
+          autoFocus
+          maxLength={LIMITS.cardText}
+          rows={3}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              save();
+            }
+            if (e.key === "Escape") setEditing(false);
+          }}
+        />
+      ) : (
+        <button
+          className="draft-text"
+          onClick={() => {
+            setText(draft.text);
+            setEditing(true);
+          }}
+          title="Click to edit"
+        >
+          <CardText text={draft.text} />
+        </button>
+      )}
+      <div className="card-actions">
+        <button className="btn small" onClick={props.onPublish} disabled={!!draft.publishingAt}>
+          {draft.publishingAt ? "Publishing…" : "Publish"}
+        </button>
+        <button
+          className="btn small ghost"
+          onClick={props.onDelete}
+          aria-label={`Delete draft: ${draft.text}`}
+        >
+          Delete
         </button>
       </div>
-    </form>
+    </article>
   );
 }
 
@@ -155,7 +301,7 @@ function WriteCard(props: { card: Card }) {
         </div>
       )}
       {canModerate && (
-        <div className="card-actions">
+        <div className="card-actions moderate">
           <button
             className="btn small ghost"
             onClick={() => send({ t: "card.remove", id: card.id })}

@@ -7,6 +7,7 @@ import {
   SHIP_Y,
   attackerPos,
   attackerRadius,
+  currentLevel,
 } from "@yart/shared";
 import type { BattleLive, Participant, Topic } from "@yart/shared";
 import { sounds } from "../lib/sounds";
@@ -70,6 +71,7 @@ export function BattleCanvas(props: Props) {
     let lastFrame = performance.now();
     let lastT = latest.current.now();
     let lastCountdown = -1;
+    let lastLevel = 0;
     let seenDead = new Set<number>(latest.current.battle.dead);
     const seenFallen = new Set(
       Object.entries(latest.current.battle.topicHp)
@@ -148,6 +150,14 @@ export function BattleCanvas(props: Props) {
       const dt = Math.min(0.05, (perf - lastFrame) / 1000);
       lastFrame = perf;
       const started = t >= battle.startsAt;
+      // Each lane is a level; only its tiles and attackers are on the field.
+      const level = currentLevel(battle.levels, t);
+      const lv = battle.levels[level];
+      const betweenLevels = started && !!lv && t < lv.startsAt;
+      if (level !== lastLevel) {
+        lastLevel = level;
+        sounds.go();
+      }
       const live = started && t <= battle.endsAt;
       const dead = new Set(battle.dead);
       const byId = new Map(battle.script.map((a) => [a.id, a]));
@@ -203,7 +213,7 @@ export function BattleCanvas(props: Props) {
           sounds.shoot();
         }
       }
-      const alive = battle.script.filter((a) => !dead.has(a.id));
+      const alive = battle.script.filter((a) => a.level === level && !dead.has(a.id));
       bullets = bullets.filter((b) => {
         b.y -= BULLET_SPEED * dt;
         if (b.y < -40) return false;
@@ -265,6 +275,7 @@ export function BattleCanvas(props: Props) {
       const topicById = new Map(p.topics.map((x) => [x.id, x]));
       ctx.textBaseline = "top";
       for (const tile of battle.tiles) {
+        if (tile.level !== level) continue;
         const hp = battle.topicHp[tile.topicId] ?? 0;
         const max = battle.topicMaxHp[tile.topicId] ?? 1;
         const ratio = Math.max(0, hp / max);
@@ -382,10 +393,24 @@ export function BattleCanvas(props: Props) {
           ARENA_W / 2,
           480
         );
-      } else {
-        const left = Math.max(0, battle.endsAt - t);
+      } else if (betweenLevels && lv) {
+        ctx.font = `700 34px "Space Grotesk", system-ui, sans-serif`;
+        ctx.fillStyle = "#7dd3fc";
+        ctx.fillText(`Level ${level + 1} of ${battle.levels.length}`, ARENA_W / 2, 300);
+        ctx.fillStyle = "#e8ecff";
+        ctx.font = `700 72px "Space Grotesk", system-ui, sans-serif`;
+        ctx.fillText(wrapText(ctx, lv.title, ARENA_W - 200, 1)[0] ?? "", ARENA_W / 2, 330);
+        ctx.font = `500 26px Inter, system-ui, sans-serif`;
+        ctx.fillText(`Incoming in ${Math.ceil((lv.startsAt - t) / 1000)}…`, ARENA_W / 2, 440);
+      } else if (lv) {
+        const left = Math.max(0, lv.endsAt - t);
+        ctx.font = `600 22px Inter, system-ui, sans-serif`;
+        ctx.fillStyle = "#a3acd6";
+        const name = wrapText(ctx, lv.title, 600, 1)[0] ?? "";
+        ctx.fillText(`Level ${level + 1}/${battle.levels.length} · ${name}`, ARENA_W / 2, 625);
+        ctx.fillStyle = "#e8ecff";
         ctx.font = `700 30px "Space Grotesk", system-ui, sans-serif`;
-        ctx.fillText(`${Math.ceil(left / 1000)}s`, ARENA_W / 2, 640);
+        ctx.fillText(`${Math.ceil(left / 1000)}s`, ARENA_W / 2, 668);
       }
       ctx.textAlign = "left";
     };

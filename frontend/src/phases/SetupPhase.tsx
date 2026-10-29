@@ -1,10 +1,11 @@
-import { LANE_TEMPLATES, LIMITS } from "@yart/shared";
+import { useState } from "react";
+import { LANE_COLOURS, LANE_TEMPLATES, LIMITS } from "@yart/shared";
 import type { Lane } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
 import { InlineEdit } from "../components/InlineEdit";
 import { LaneHeader, PhaseIntro } from "../components/common";
 
-type LaneInput = { id?: string; title: string; description: string };
+type LaneInput = { id?: string; title: string; description: string; colour?: string };
 
 export function SetupPhase() {
   const { room, isOwner } = useRoom();
@@ -54,6 +55,7 @@ function LanePreview(props: { lanes: Lane[] }) {
 function LaneEditor() {
   const { room, send } = useRoom();
   const lanes = room.lanes;
+  const [picking, setPicking] = useState<string | null>(null);
   const toInput = (l: Lane): LaneInput => ({ id: l.id, title: l.title, description: l.description });
   const save = (next: LaneInput[]) => send({ t: "lanes.set", lanes: next });
 
@@ -79,7 +81,32 @@ function LaneEditor() {
       <ol className="lane-edit-list">
         {lanes.map((lane, i) => (
           <li key={lane.id} className="lane-edit" style={{ borderColor: lane.colour }}>
-            <span className="lane-swatch" style={{ background: lane.colour }} aria-hidden="true" />
+            <div className="colour-pick">
+              <button
+                className="swatch-btn"
+                style={{ background: lane.colour }}
+                aria-label={`Change colour of ${lane.title}`}
+                aria-expanded={picking === lane.id}
+                onClick={() => setPicking(picking === lane.id ? null : lane.id)}
+              />
+              {picking === lane.id && (
+                <div className="palette" role="group" aria-label={`Colours for ${lane.title}`}>
+                  {LANE_COLOURS.map((c) => (
+                    <button
+                      key={c}
+                      className={`swatch-btn small ${c === lane.colour ? "selected" : ""}`}
+                      style={{ background: c }}
+                      aria-label={`Colour ${c}`}
+                      aria-pressed={c === lane.colour}
+                      onClick={() => {
+                        update(i, { colour: c });
+                        setPicking(null);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="lane-edit-fields">
               <InlineEdit
                 label={`Lane ${i + 1} title`}

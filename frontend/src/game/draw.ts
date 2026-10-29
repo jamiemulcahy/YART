@@ -103,28 +103,42 @@ export function wrapText(
   maxWidth: number,
   maxLines: number
 ): string[] {
-  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  const fits = (t: string) => ctx.measureText(t).width <= maxWidth;
+  // Split anything too wide to fit on a line (long URLs, keyboard mashing) into chunks.
+  const words: string[] = [];
+  for (const word of text.replace(/\s+/g, " ").trim().split(" ")) {
+    let rest = word;
+    while (rest && !fits(rest)) {
+      let n = rest.length - 1;
+      while (n > 1 && !fits(rest.slice(0, n))) n--;
+      words.push(rest.slice(0, n));
+      rest = rest.slice(n);
+    }
+    if (rest) words.push(rest);
+  }
   const lines: string[] = [];
   let line = "";
+  let truncated = false;
   for (const word of words) {
     const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width <= maxWidth) {
+    if (fits(test)) {
       line = test;
       continue;
     }
-    if (line) lines.push(line);
+    lines.push(line);
     line = word;
-    if (lines.length === maxLines) break;
+    if (lines.length === maxLines) {
+      truncated = true;
+      break;
+    }
   }
-  if (lines.length < maxLines && line) lines.push(line);
-  if (lines.length > maxLines) lines.length = maxLines;
-  const used = lines.join(" ").length;
-  if (used < text.replace(/\s+/g, " ").trim().length && lines.length > 0) {
+  if (!truncated && line) lines.push(line);
+  if (truncated && lines.length > 0) {
     let last = lines[lines.length - 1] as string;
-    while (last.length > 1 && ctx.measureText(`${last}…`).width > maxWidth) last = last.slice(0, -1);
+    while (last.length > 1 && !fits(`${last}…`)) last = last.slice(0, -1);
     lines[lines.length - 1] = `${last}…`;
   }
-  return lines;
+  return lines.filter(Boolean);
 }
 
 export interface Particle {

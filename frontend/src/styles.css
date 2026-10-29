@@ -16,8 +16,8 @@
   --warn: #facc15;
   --bad: #f87171;
   --shield: #38bdf8;
-  --card: #f6f3e7;
-  --card-text: #1a1a2e;
+  --card: #18204a;
+  --card-text: #e8ecff;
   --radius: 12px;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --font: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -613,14 +613,46 @@ textarea {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.timer.paused {
-  opacity: 0.75;
+.timer.paused .timer-value {
+  opacity: 0.7;
 }
-.timer-state {
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: 500;
+.timer.idle {
+  background: transparent;
   color: var(--text-dim);
+}
+.timer-value {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  min-width: 3.2em;
+  text-align: center;
+}
+.timer-value.editable {
+  cursor: text;
+  border-bottom: 1px dashed var(--border);
+}
+.timer-input {
+  width: 4.5em;
+  padding: 0 6px;
+  font: inherit;
+  text-align: center;
+}
+.timer-btn {
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+}
+.timer-btn:hover {
+  color: var(--text);
+}
+.timer-btn.play {
+  color: var(--good);
 }
 .timer.done {
   background: #7f1d1d;
@@ -782,11 +814,19 @@ textarea {
   color: var(--text-dim);
 }
 
+/* Lanes keep a generous width; many lanes scroll sideways rather than squashing. */
 .lanes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  display: flex;
   gap: 16px;
-  align-items: start;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x proximity;
+}
+.lanes > .lane {
+  flex: 1 0 340px;
+  max-width: 100%;
+  scroll-snap-align: start;
 }
 .lane {
   background: rgba(13, 19, 48, 0.75);
@@ -847,17 +887,22 @@ textarea {
   gap: 8px;
 }
 
-.card {
+/* Cards are tinted by their lane: set --lane on the card (or an ancestor). */
+.card,
+.defend-topic {
   position: relative;
-  background: var(--card);
+  background: color-mix(in srgb, var(--lane, #6366f1) 14%, var(--card));
   color: var(--card-text);
+  border: 1px solid color-mix(in srgb, var(--lane, #6366f1) 38%, transparent);
   border-radius: 10px;
   padding: 10px 12px;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
-  border-left: 4px solid transparent;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  overflow-wrap: anywhere;
 }
 .card.mine {
-  border-left-color: var(--primary);
+  box-shadow:
+    inset 3px 0 0 var(--accent),
+    0 2px 0 rgba(0, 0, 0, 0.3);
 }
 .card-text {
   margin: 0;
@@ -887,20 +932,88 @@ textarea {
   gap: 6px;
   margin-top: 8px;
 }
-.card .btn.ghost {
-  color: var(--card-text);
-  border-color: rgba(0, 0, 0, 0.15);
+/* Owner moderation stays out of the way until you hover or tab to a card. */
+.card-actions.moderate {
+  opacity: 0;
+  transition: opacity 0.15s;
 }
-.card .btn.ghost:hover {
-  background: rgba(0, 0, 0, 0.06);
+.card:hover .card-actions.moderate,
+.card:focus-within .card-actions.moderate {
+  opacity: 1;
+}
+@media (hover: none) {
+  .card-actions.moderate {
+    opacity: 1;
+  }
 }
 .card.editing textarea {
-  background: white;
-  color: var(--card-text);
+  background: var(--bg-2);
 }
 
+/* Write: published board on top, private draft tray at the bottom of each lane. */
+.write-lanes .write-lane {
+  display: flex;
+  flex-direction: column;
+  height: max(460px, calc(100vh - 250px));
+}
+.lane-board {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  padding: 2px 2px 8px;
+}
+.tray {
+  flex: none;
+  max-height: 55%;
+  overflow-y: auto;
+  margin: 8px -12px -12px;
+  padding: 10px 12px 12px;
+  border-top: 2px dashed color-mix(in srgb, var(--lane, #6366f1) 45%, transparent);
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 0 0 16px 16px;
+}
+.lanes.compact .write-lane {
+  height: auto;
+}
+.tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.tray-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.drafts {
+  margin-bottom: 8px;
+}
+.card.draft {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--lane, #6366f1) 7%, var(--bg-2));
+}
+.card.draft.publishing {
+  opacity: 0.55;
+}
+.draft-text {
+  display: block;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  cursor: text;
+}
+.hint {
+  margin-right: auto;
+  font-size: 12px;
+}
 .add-card {
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 .add-card-foot {
   display: flex;
@@ -940,6 +1053,39 @@ textarea {
   border-left: 4px solid;
   border-radius: 12px;
   padding: 10px 12px;
+}
+.colour-pick {
+  position: relative;
+}
+.swatch-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  padding: 0;
+}
+.swatch-btn:hover,
+.swatch-btn.selected {
+  border-color: white;
+}
+.swatch-btn.small {
+  width: 20px;
+  height: 20px;
+}
+.palette {
+  position: absolute;
+  top: 30px;
+  left: -6px;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(5, 20px);
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
 }
 .lane-edit-fields {
   flex: 1;
@@ -1018,7 +1164,7 @@ textarea {
 .held-by {
   display: block;
   font-size: 12px;
-  color: #6b21a8;
+  color: var(--accent-2);
   margin-top: 4px;
 }
 .card-menu {
@@ -1029,8 +1175,8 @@ textarea {
   height: 26px;
   padding: 0;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   color: var(--card-text);
   appearance: none;
   text-align: center;
@@ -1132,10 +1278,7 @@ textarea {
   font-family: var(--display);
 }
 .defend-topic {
-  background: var(--card);
-  color: var(--card-text);
   border-radius: 12px;
-  padding: 10px 12px;
   box-shadow: 0 0 0 0 var(--shield);
   transition: box-shadow 0.25s;
 }
@@ -1192,18 +1335,13 @@ textarea {
 .shield-count {
   font-size: 13px;
 }
-.defend-topic .muted {
-  color: #6b7280;
-}
+
 .shield-buttons {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.defend-topic .btn.ghost {
-  color: var(--card-text);
-  border-color: rgba(0, 0, 0, 0.2);
-}
+
 .my-shields {
   min-width: 20px;
   text-align: center;
@@ -1376,7 +1514,6 @@ button.rank-row:hover {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 700;
-  filter: brightness(0.7);
 }
 .notes-actions {
   display: grid;
@@ -1542,4 +1679,34 @@ button.rank-row:hover {
   .owner-actions {
     justify-content: flex-start;
   }
+}
+
+/* ---------- Defensive layout: long or unbroken text must never push layouts apart */
+.briefing-grid > *,
+.results-grid > *,
+.wrapup-grid > *,
+.discuss-layout > *,
+.lanes > *,
+.landing-panels > * {
+  min-width: 0;
+}
+.panel,
+.lane,
+.open-topic,
+.note,
+.action,
+.lane-header h3,
+.lane-desc,
+.inline-edit,
+.open-topic-head h3,
+.phase-intro h2,
+.lobby-list li,
+.people-list li,
+.export-preview pre {
+  overflow-wrap: anywhere;
+}
+.lobby-list li,
+.people-list li span {
+  max-width: 100%;
+  min-width: 0;
 }

@@ -1,6 +1,7 @@
 import type { Topic } from "@yart/shared";
 import { sounds } from "../lib/sounds";
 import { useRoom } from "../room/RoomContext";
+import { laneVar } from "../lib/style";
 import { LaneHeader, PhaseIntro } from "../components/common";
 
 export function DefendPhase() {
@@ -42,7 +43,7 @@ export function DefendPhase() {
         {room.lanes.map((lane) => {
           const laneTopics = topics.filter((t) => t.laneId === lane.id);
           return (
-            <section key={lane.id} className="lane" aria-label={lane.title}>
+            <section key={lane.id} className="lane" aria-label={lane.title} style={laneVar(lane.colour)}>
               <LaneHeader lane={lane} />
               <ul className="card-list">
                 {laneTopics.map((topic) => (

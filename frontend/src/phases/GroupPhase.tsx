@@ -16,6 +16,7 @@ import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { LIMITS, truncate } from "@yart/shared";
 import type { Card, Lane, Topic } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
+import { laneVar } from "../lib/style";
 import { CardText, LaneHeader, PhaseIntro } from "../components/common";
 import { InlineEdit } from "../components/InlineEdit";
 import { WriteLane } from "./WritePhase";
@@ -86,7 +87,7 @@ export function GroupPhase() {
           <summary>Forgot something? Add a late card</summary>
           <div className="lanes compact">
             {room.lanes.map((lane) => (
-              <WriteLane key={lane.id} lane={lane} cards={[]} />
+              <WriteLane key={lane.id} lane={lane} cards={[]} trayOnly />
             ))}
           </div>
         </details>
@@ -245,7 +246,7 @@ function DraggableCard(props: { card: Card; canDrag: boolean; allTopics: Topic[]
       <article
         ref={drag.setNodeRef}
         className={`card draggable ${card.mine ? "mine" : ""} ${drag.isDragging ? "is-dragging" : ""} ${heldByOther ? "held" : ""}`}
-        style={card.groupId && lane ? { borderLeftColor: lane.colour } : undefined}
+        style={laneVar(lane?.colour)}
         aria-label={text}
         {...(props.canDrag ? drag.listeners : {})}
         {...(props.canDrag ? drag.attributes : {})}
