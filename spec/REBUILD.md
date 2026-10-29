@@ -17,14 +17,14 @@ Status: **Agreed** — open questions resolved (§18). Implementation follows th
 
 ## 2. What we keep vs rebuild
 
-| Area                                      | Decision                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------- |
-| Domain, Cloudflare Workers, Durable Objects | **Keep** — one Durable Object (DO) per room, WebSocket Hibernation API.         |
-| Worker HTTP routes                        | Keep the shape, tighten (see §13).                                               |
-| `RoomDO` logic                            | **Rewrite** against the new protocol and storage model.                          |
-| Frontend                                  | **Rewrite** (React + Vite + TypeScript retained as the stack).                   |
-| E2E tests                                 | Rewrite alongside new UI.                                                        |
-| New: `shared/` package                    | Protocol types + validation + pure game/layout logic, used by worker and frontend. |
+| Area                                        | Decision                                                                           |
+| ------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Domain, Cloudflare Workers, Durable Objects | **Keep** — one Durable Object (DO) per room, WebSocket Hibernation API.            |
+| Worker HTTP routes                          | Keep the shape, tighten (see §13).                                                 |
+| `RoomDO` logic                              | **Rewrite** against the new protocol and storage model.                            |
+| Frontend                                    | **Rewrite** (React + Vite + TypeScript retained as the stack).                     |
+| E2E tests                                   | Rewrite alongside new UI.                                                          |
+| New: `shared/` package                      | Protocol types + validation + pure game/layout logic, used by worker and frontend. |
 
 Proposed layout:
 
@@ -62,15 +62,15 @@ This is the old app's biggest failure. Rules:
 
 Owner-controlled. Every phase change is broadcast and everyone's UI follows.
 
-| # | Phase       | Who does what                                                                                   |
-| - | ----------- | ----------------------------------------------------------------------------------------------- |
-| 0 | **Setup**   | Owner creates lanes from a template or blank; sets options (§6, §7, §9). Participants can join and wait in a lobby. |
-| 1 | **Write**   | Everyone adds/edits/deletes their own cards.                                                    |
-| 2 | **Group**   | Everyone drags cards into groups; names groups.                                                 |
-| 3 | **Defend**  | Everyone places shields on topics. (This is the vote.)                                          |
-| 4 | **Battle**  | Optional, cosmetic. Everyone defends the board from invaders. Owner can skip.                   |
-| 5 | **Discuss** | Owner opens topics in shield order; everyone sees the open topic, adds notes and actions.       |
-| 6 | **Wrap-up** | Summary view + markdown export.                                                                 |
+| #   | Phase       | Who does what                                                                                                       |
+| --- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| 0   | **Setup**   | Owner creates lanes from a template or blank; sets options (§6, §7, §9). Participants can join and wait in a lobby. |
+| 1   | **Write**   | Everyone adds/edits/deletes their own cards.                                                                        |
+| 2   | **Group**   | Everyone drags cards into groups; names groups.                                                                     |
+| 3   | **Defend**  | Everyone places shields on topics. (This is the vote.)                                                              |
+| 4   | **Battle**  | Optional, cosmetic. Everyone defends the board from invaders. Owner can skip.                                       |
+| 5   | **Discuss** | Owner opens topics in shield order; everyone sees the open topic, adds notes and actions.                           |
+| 6   | **Wrap-up** | Summary view + markdown export.                                                                                     |
 
 Navigation: owner can move forward or back one phase at a time. Going back from Defend to Group keeps shields on topics that still exist; shields on a dissolved group are refunded.
 
@@ -90,7 +90,7 @@ A facilitation tool only — not tied to phases and never enforces anything.
 
 Owner option, set in Setup and changeable during Write: **Visible** or **Hidden until revealed** (default: hidden).
 
-- Adding a card always produces a visible event for everyone (a card appears in the lane, with the author's colour).
+- Adding a card always produces a visible event for everyone (a face-down card appears in the lane).
 - In hidden mode, other participants receive the card as `{ id, laneId, authorId, hidden: true }` — no text, no length. Rendered as a face-down card. The author always sees their own text.
 - Reveal happens when the owner presses **Reveal**, or automatically when leaving Write.
 - On any visibility change, the server sends each socket a fresh, **per-viewer filtered snapshot** of cards. (Simpler than "notify then client re-fetches", and the same code path as reconnect.)
@@ -100,7 +100,7 @@ Owner option, set in Setup and changeable during Write: **Visible** or **Hidden 
 
 ### Cards
 
-- Cards show the author's colour only, never their name — not even to the owner. The server keeps authorship to permit edits.
+- Cards carry no author indicator at all (a colour would map back to a name via the people list) — not even for the owner. Your own cards are marked "yours". The server keeps authorship to permit edits.
 - Owner option **Allow late cards** (default off): permits adding cards during Group.
 - Author can edit or delete their own card in Write. In Group onwards, card text is frozen (edits would change what people voted for).
 - Owner can delete any card (moderation) in any phase.
@@ -149,7 +149,7 @@ The server generates the whole battle up front as a **script** and sends it to e
 ```ts
 type AttackerScript = {
   id: number;
-  kind: 'grunt' | 'boss';
+  kind: "grunt" | "boss";
   hp: number;
   spawnAt: number; // server ms
   // piecewise-linear path; position at time t is pure interpolation
@@ -164,6 +164,7 @@ type AttackerScript = {
   - Clients detect hits locally and send claims: `{ attackerId, at }`.
   - Server validates each claim: attacker exists, spawned, not dead, `at` within the last ~1 s, player within their fire-rate budget. Valid → subtract damage.
   - Server processes due `strikes` on a ~5 Hz loop: if the attacker is alive at the strike time, the topic takes damage.
+  - The script is sized for everyone online at launch. Strike damage is scaled by the share of players who are actually sending input (minimum 35 %), so a room full of idle people doesn't get flattened.
 - Clients show an instant hit flash (optimistic) but only show a **death** or **topic damage** when the server confirms. No "I saw it attack A, you saw it attack B": targets are in the script; outcomes come from one authority.
 - Late joiners / refreshers receive the script + current state and drop straight in.
 
@@ -178,7 +179,7 @@ type AttackerScript = {
 
 - Each topic is marked **survived** or **fell** (badge only).
 - Fun stats screen: most attackers destroyed, boss-killer, etc., by anonymous name. Owner option to hide individual stats.
-- Owner clicks **Discuss** to move on.
+- Owner can end a battle early (**End battle now**), replay it, or click **Discuss** to move on.
 
 ### 10.6 Presentation
 
@@ -208,23 +209,29 @@ Participants: 8 · Shields per person: 5
 ## Topics (by shields)
 
 ### 1. Deploys are too slow — 🛡 14 (survived)
+
 _Group of 3 · Sad, Mad_
+
 - Pipeline takes 40 min (Sad)
 - Flaky integration tests block deploys (Mad)
 - Staging always broken (Sad)
 
 **Notes**
+
 - Most time is spent in the e2e stage
 
 **Actions**
+
 - [ ] Split e2e suite into parallel shards — Alex
 
 ### 2. ...
 
 ## Other cards (no shields)
+
 - ...
 
 ## Actions
+
 - [ ] Split e2e suite into parallel shards — Alex
 - [ ] ...
 ```
@@ -235,24 +242,24 @@ JSON over one WebSocket per tab. Every message has `t` (type). All types and val
 
 ### 12.1 Client → server
 
-| Type                                                              | Who         | Phase       |
-| ----------------------------------------------------------------- | ----------- | ----------- |
-| `hello { token?, ownerKey? }`                                     | any         | any         |
-| `ping { clientTime }`                                             | any         | any         |
-| `rename { name }`                                                 | any         | any         |
-| `lane.add/update/remove/reorder`                                  | owner       | Setup       |
-| `settings.update { ...partial }`                                  | owner       | any         |
-| `phase.set { phase }`                                             | owner       | any         |
-| `timer.set { durationMs }` / `timer.start/pause/resume/reset`     | owner       | any         |
-| `card.add { laneId, text }` / `card.edit { id, text }` / `card.remove { id }` | author (owner may remove) | Write |
-| `cards.reveal`                                                    | owner       | Write       |
-| `card.hold { id }` / `card.release { id }`                        | any         | Group       |
-| `card.move { id, toGroupId? , toCardId? , ungroup? }`             | any         | Group       |
-| `group.rename { id, title }`                                      | any         | Group       |
-| `shield.add { topicId }` / `shield.remove { topicId }`            | any         | Defend      |
-| `battle.input { x, hits: { attackerId, at }[] }`                  | any         | Battle      |
-| `topic.open { topicId }` / `topic.markDiscussed { topicId }`      | owner       | Discuss     |
-| `note.add/edit/remove`, `action.add/edit/remove`                  | any (own) / owner (any) | Discuss, Wrap-up |
+| Type                                                                          | Who                       | Phase            |
+| ----------------------------------------------------------------------------- | ------------------------- | ---------------- |
+| `hello { token?, ownerKey? }`                                                 | any                       | any              |
+| `ping { clientTime }`                                                         | any                       | any              |
+| `rename { name }`                                                             | any                       | any              |
+| `lane.add/update/remove/reorder`                                              | owner                     | Setup            |
+| `settings.update { ...partial }`                                              | owner                     | any              |
+| `phase.set { phase }`                                                         | owner                     | any              |
+| `timer.set { durationMs }` / `timer.start/pause/resume/reset`                 | owner                     | any              |
+| `card.add { laneId, text }` / `card.edit { id, text }` / `card.remove { id }` | author (owner may remove) | Write            |
+| `cards.reveal`                                                                | owner                     | Write            |
+| `card.hold { id }` / `card.release { id }`                                    | any                       | Group            |
+| `card.move { id, toGroupId? , toCardId? , ungroup? }`                         | any                       | Group            |
+| `group.rename { id, title }`                                                  | any                       | Group            |
+| `shield.add { topicId }` / `shield.remove { topicId }`                        | any                       | Defend           |
+| `battle.input { x, hits: { attackerId, at }[] }`                              | any                       | Battle           |
+| `topic.open { topicId }` / `topic.markDiscussed { topicId }`                  | owner                     | Discuss          |
+| `note.add/edit/remove`, `action.add/edit/remove`                              | any (own) / owner (any)   | Discuss, Wrap-up |
 
 ### 12.2 Server → client
 
@@ -261,7 +268,7 @@ JSON over one WebSocket per tab. Every message has `t` (type). All types and val
 - `battle.start { script, layout, endsAt }`, `battle.tick { ships, attackerHp, deaths, topicHp }`, `battle.end { results }`.
 - `error { code, message, ref? }` for rejected requests (e.g. `LIMIT_CARD_TEXT`, `NOT_OWNER`, `WRONG_PHASE`, `RATE_LIMITED`).
 
-Every server event carries a monotonically increasing `seq`. If a client sees a gap it requests a fresh snapshot — cheap self-healing for any missed message.
+No sequence numbers: a WebSocket delivers in order while connected, and every (re)connect starts with a full per-viewer snapshot, so there is nothing to reconcile.
 
 ### 12.3 Clock sync
 
@@ -271,21 +278,21 @@ On connect, the client sends a few `ping`s and estimates server-clock offset (NT
 
 All enforced server-side; mirrored client-side for nice UX. Values live in `shared/limits.ts`.
 
-| Thing                                | Limit                         |
-| ------------------------------------ | ----------------------------- |
-| Room name                            | 80 chars                      |
-| Lanes per room                       | 10                            |
-| Lane title / description             | 40 / 140 chars                |
-| Card text                            | 500 chars                     |
-| Cards per participant / per room     | 50 / 500                      |
-| Group title                          | 80 chars                      |
-| Participant name                     | 32 chars                      |
-| Participants per room                | 50                            |
-| Note / action text                   | 500 chars                     |
-| Notes per topic / actions per room   | 50 / 100                      |
-| Inbound message size                 | 4 KB                          |
-| Inbound rate (non-battle)            | ~20 msg/s per socket, burst 40 |
-| Inbound rate (battle)                | ~10 msg/s per socket          |
+| Thing                              | Limit                          |
+| ---------------------------------- | ------------------------------ |
+| Room name                          | 80 chars                       |
+| Lanes per room                     | 10                             |
+| Lane title / description           | 40 / 140 chars                 |
+| Card text                          | 500 chars                      |
+| Cards per participant / per room   | 50 / 500                       |
+| Group title                        | 80 chars                       |
+| Participant name                   | 32 chars                       |
+| Participants per room              | 50                             |
+| Note / action text                 | 500 chars                      |
+| Notes per topic / actions per room | 50 / 100                       |
+| Inbound message size               | 4 KB                           |
+| Inbound rate (non-battle)          | ~20 msg/s per socket, burst 40 |
+| Inbound rate (battle)              | ~10 msg/s per socket           |
 
 Also:
 
