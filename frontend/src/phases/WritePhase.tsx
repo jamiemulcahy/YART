@@ -5,7 +5,7 @@ import type { Card, Lane } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
 import { useDrafts } from "../room/drafts";
 import type { Draft } from "../room/drafts";
-import { laneVar } from "../lib/style";
+import { laneVar, tilt } from "../lib/style";
 import { CardText, HiddenCardText, LaneHeader, PhaseIntro } from "../components/common";
 
 const PUBLISH_TIMEOUT_MS = 6000;
@@ -44,13 +44,15 @@ export function WriteLane(props: { lane: Lane; cards: Card[]; trayOnly?: boolean
     <section className="lane write-lane" aria-label={lane.title} style={laneVar(lane.colour)}>
       <LaneHeader lane={lane} count={props.trayOnly ? undefined : cards.length} />
       {!props.trayOnly && (
-        <ul className="card-list lane-board">
-          {cards.map((card) => (
-            <li key={card.id}>
-              <WriteCard card={card} />
-            </li>
-          ))}
-        </ul>
+        <div className="lane-board">
+          <ul className="postits">
+            {cards.map((card) => (
+              <li key={card.id} style={tilt(card.id)}>
+                <WriteCard card={card} />
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {!isViewer && <DraftTray lane={lane} />}
     </section>
@@ -95,12 +97,12 @@ function DraftTray(props: { lane: Lane }) {
     setTimeout(() => setTick((t) => t + 1), PUBLISH_TIMEOUT_MS + ready.length * PUBLISH_GAP_MS);
   };
 
-  const submit = (e?: FormEvent, publishNow = false) => {
+  // Everything typed lands in the private tray first; publishing is always a separate step.
+  const submit = (e?: FormEvent) => {
     e?.preventDefault();
     const value = text.trim();
     if (!value) return;
-    if (publishNow) send({ t: "card.add", laneId: lane.id, text: value });
-    else add(value);
+    add(value);
     setText("");
   };
 
@@ -115,7 +117,7 @@ function DraftTray(props: { lane: Lane }) {
         )}
       </div>
       {drafts.length > 0 && (
-        <ul className="card-list drafts">
+        <ul className="postits drafts">
           {drafts.map((d) => (
             <li key={d.id}>
               <DraftCard
@@ -141,29 +143,19 @@ function DraftTray(props: { lane: Lane }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
-              submit(undefined, e.ctrlKey || e.metaKey);
+              submit();
             }
           }}
         />
         <div className="add-card-foot">
-          <span className="muted hint" title="Enter saves a draft; Ctrl+Enter publishes now">
-            ↵ draft · Ctrl+↵ publish
-          </span>
+          <span className="muted hint">Enter to save · Shift+Enter for a new line</span>
           {text.length > LIMITS.cardText * 0.8 && (
             <span className="muted">
               {text.length}/{LIMITS.cardText}
             </span>
           )}
-          <button className="btn small ghost" type="submit" disabled={!text.trim()}>
-            Draft
-          </button>
-          <button
-            className="btn small"
-            type="button"
-            disabled={!text.trim()}
-            onClick={() => submit(undefined, true)}
-          >
-            Publish
+          <button className="btn small" type="submit" disabled={!text.trim()}>
+            Save draft
           </button>
         </div>
       </form>

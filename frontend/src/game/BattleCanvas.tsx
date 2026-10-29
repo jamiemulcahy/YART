@@ -3,6 +3,8 @@ import {
   ARENA_H,
   ARENA_W,
   BULLET_SPEED,
+  COUNTDOWN_MS,
+  LEVEL_GAP_MS,
   FIRE_INTERVAL_MS,
   SHIP_Y,
   attackerPos,
@@ -274,8 +276,29 @@ export function BattleCanvas(props: Props) {
       // Topic tiles
       const topicById = new Map(p.topics.map((x) => [x.id, x]));
       ctx.textBaseline = "top";
+      // Lanes arrive from the top; a finished lane flies down off-screen to safety.
+      const easeOut = (x: number) => 1 - (1 - x) ** 3;
+      const easeIn = (x: number) => x ** 2;
+      const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+      const prevLv = betweenLevels ? battle.levels[level - 1] : undefined;
+      const tileOffset = (tileLevel: number): number | null => {
+        if (tileLevel === level && lv) {
+          // The next lane drops in once the escaping one is mostly clear.
+          const arriveFrom = started ? lv.startsAt - LEVEL_GAP_MS * 0.6 : battle.startsAt - COUNTDOWN_MS;
+          const arriveMs = started ? LEVEL_GAP_MS * 0.6 : COUNTDOWN_MS * 0.6;
+          return -(1 - easeOut(clamp01((t - arriveFrom) / arriveMs))) * ARENA_H;
+        }
+        if (prevLv && tileLevel === level - 1) {
+          return easeIn(clamp01((t - prevLv.endsAt) / (LEVEL_GAP_MS * 0.5))) * ARENA_H;
+        }
+        return null;
+      };
       for (const tile of battle.tiles) {
-        if (tile.level !== level) continue;
+        const dy = tileOffset(tile.level);
+        if (dy === null) continue;
+        const escaping = tile.level !== level;
+        ctx.save();
+        ctx.translate(0, dy);
         const hp = battle.topicHp[tile.topicId] ?? 0;
         const max = battle.topicMaxHp[tile.topicId] ?? 1;
         const ratio = Math.max(0, hp / max);
@@ -315,8 +338,15 @@ export function BattleCanvas(props: Props) {
           ctx.textAlign = "center";
           ctx.fillText("DESTROYED", tile.x, tile.y - fontSize / 2);
           ctx.textAlign = "left";
+        } else if (escaping) {
+          ctx.font = `700 ${fontSize + 4}px "Space Grotesk", system-ui, sans-serif`;
+          ctx.fillStyle = "#4ade80";
+          ctx.textAlign = "center";
+          ctx.fillText("SAFE ✓", tile.x, tile.y - fontSize / 2);
+          ctx.textAlign = "left";
         }
         ctx.globalAlpha = 1;
+        ctx.restore();
       }
 
       // Beams
@@ -394,20 +424,22 @@ export function BattleCanvas(props: Props) {
           480
         );
       } else if (betweenLevels && lv) {
+        ctx.fillStyle = "rgba(5, 8, 22, 0.72)";
+        ctx.fillRect(0, 270, ARENA_W, 220);
         ctx.font = `700 34px "Space Grotesk", system-ui, sans-serif`;
         ctx.fillStyle = "#7dd3fc";
-        ctx.fillText(`Level ${level + 1} of ${battle.levels.length}`, ARENA_W / 2, 300);
+        ctx.fillText(`Lane ${level + 1} of ${battle.levels.length} under attack`, ARENA_W / 2, 300);
         ctx.fillStyle = "#e8ecff";
         ctx.font = `700 72px "Space Grotesk", system-ui, sans-serif`;
         ctx.fillText(wrapText(ctx, lv.title, ARENA_W - 200, 1)[0] ?? "", ARENA_W / 2, 330);
         ctx.font = `500 26px Inter, system-ui, sans-serif`;
-        ctx.fillText(`Incoming in ${Math.ceil((lv.startsAt - t) / 1000)}…`, ARENA_W / 2, 440);
+        ctx.fillText(`Defend it for ${Math.round((lv.endsAt - lv.startsAt) / 1000)}s!`, ARENA_W / 2, 440);
       } else if (lv) {
         const left = Math.max(0, lv.endsAt - t);
         ctx.font = `600 22px Inter, system-ui, sans-serif`;
         ctx.fillStyle = "#a3acd6";
         const name = wrapText(ctx, lv.title, 600, 1)[0] ?? "";
-        ctx.fillText(`Level ${level + 1}/${battle.levels.length} · ${name}`, ARENA_W / 2, 625);
+        ctx.fillText(`Lane ${level + 1}/${battle.levels.length} · ${name}`, ARENA_W / 2, 625);
         ctx.fillStyle = "#e8ecff";
         ctx.font = `700 30px "Space Grotesk", system-ui, sans-serif`;
         ctx.fillText(`${Math.ceil(left / 1000)}s`, ARENA_W / 2, 668);

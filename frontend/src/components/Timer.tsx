@@ -9,12 +9,13 @@ import { useRoom } from "../room/RoomContext";
  * play/pause and reset, and clicks the time to change the length.
  */
 export function Timer() {
-  const { room, now, isOwner, send } = useRoom();
+  const { room, now, isOwner, send, toast } = useRoom();
   const timer = room.timer;
   const [, setTick] = useState(0);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const alarmedFor = useRef<number | null>(null);
+  const cancelled = useRef(false);
 
   useEffect(() => {
     if (timer.status !== "running") return;
@@ -46,8 +47,14 @@ export function Timer() {
 
   const commit = () => {
     setEditing(false);
+    if (cancelled.current) return;
+    if (draft.trim() === formatDuration(timer.durationMs)) return;
     const ms = parseDuration(draft);
-    if (ms !== null && ms >= LIMITS.timerMinMs && ms <= LIMITS.timerMaxMs) {
+    if (ms === null) {
+      toast("Use minutes and seconds like 1:30, or 45s");
+    } else if (ms < LIMITS.timerMinMs || ms > LIMITS.timerMaxMs) {
+      toast("Timers can be 5 seconds to 60 minutes");
+    } else {
       send({ t: "timer.set", durationMs: ms });
     }
   };
@@ -60,11 +67,16 @@ export function Timer() {
           aria-label="Timer length (m:ss)"
           value={draft}
           autoFocus
+          // Select the current value so typing replaces it rather than appending.
+          onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") setEditing(false);
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              cancelled.current = true;
+              e.currentTarget.blur();
+            }
           }}
         />
       ) : isOwner && !running ? (
@@ -74,6 +86,7 @@ export function Timer() {
           aria-label={`${label}. Click to change length`}
           title="Click to change length"
           onClick={() => {
+            cancelled.current = false;
             setDraft(formatDuration(timer.durationMs));
             setEditing(true);
           }}

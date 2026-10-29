@@ -16,7 +16,7 @@ import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { LIMITS, truncate } from "@yart/shared";
 import type { Card, Lane, Topic } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
-import { laneVar } from "../lib/style";
+import { laneVar, tilt } from "../lib/style";
 import { CardText, LaneHeader, PhaseIntro } from "../components/common";
 import { InlineEdit } from "../components/InlineEdit";
 import { WriteLane } from "./WritePhase";
@@ -145,9 +145,9 @@ function GroupLane(props: {
   return (
     <section ref={setNodeRef} className={`lane ${isOver ? "drop-over" : ""}`} aria-label={lane.title}>
       <LaneHeader lane={lane} count={count} />
-      <ul className="card-list">
+      <ul className="postits">
         {topics.map((topic) => (
-          <li key={topic.id}>
+          <li key={topic.id} style={topic.kind === "card" ? tilt(topic.id) : undefined}>
             {topic.kind === "group" ? (
               <GroupBox topic={topic} canDrag={props.canDrag} allTopics={props.allTopics} meId={props.meId} />
             ) : (

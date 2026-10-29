@@ -152,7 +152,7 @@ function SettingsPanel() {
           value={s.battleDurationSec}
           onChange={(e) => update({ battleDurationSec: Number(e.target.value) })}
         >
-          {[30, 40, 60, 90].map((n) => (
+          {[15, 20, 25, 30, 45].map((n) => (
             <option key={n} value={n}>
               {n}s
             </option>

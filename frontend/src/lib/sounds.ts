@@ -53,8 +53,16 @@ function tone(
   osc.stop(t + duration + 0.02);
 }
 
+/** Dev/test builds record which sounds played so E2E tests can assert on them. */
+function record(name: string): void {
+  if (!import.meta.env.DEV || muted) return;
+  const w = window as unknown as { __yartSounds?: string[] };
+  (w.__yartSounds ??= []).push(name);
+}
+
 export const sounds = {
   alarm() {
+    record("alarm");
     for (let i = 0; i < 4; i++) {
       tone(880, i * 0.5, 0.18, "square", 0.15);
       tone(660, i * 0.5 + 0.2, 0.18, "square", 0.15);

@@ -90,8 +90,9 @@ export function BattlePhase() {
         }
       >
         Your shields became armour: every topic starts with {BASE_TOPIC_HP} HP plus {SHIELD_HP} per shield.
-        Each lane is a level. Work together to shoot down the invaders before they wreck the board — bosses
-        need the whole team. This is just for fun — it won't change the discussion order.
+        One lane at a time comes under attack — hold out until it escapes to safety, and it gets harder lane
+        by lane. Work together to shoot down the invaders before they wreck the board — bosses need the whole
+        team. This is just for fun — it won't change the discussion order.
       </PhaseIntro>
       <div className="briefing-grid">
         <section className="panel">
