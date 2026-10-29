@@ -37,3 +37,24 @@ describe("names and colours", () => {
     expect(new Set(used).size).toBe(PARTICIPANT_COLOURS.length);
   });
 });
+
+describe("cleanText: blank-looking and abusive text", () => {
+  it.each([
+    ["Hangul filler", "ㅤ"],
+    ["soft hyphen", "­"],
+    ["braille blank", "⠀"],
+    ["Mongolian vowel separator", "᠎"],
+    ["tag characters", "󠁁󠁂"],
+    ["only combining marks", "́̂"],
+  ])("rejects %s", (_, text) => {
+    expect(cleanText(text, 100)).toBeNull();
+  });
+  it("tames zalgo stacks", () => {
+    const cleaned = cleanText(`a${"\u0301".repeat(50)}`, 100) ?? "";
+    // NFC folds the first accent into "á"; at most two more marks survive.
+    expect([...cleaned]).toHaveLength(3);
+  });
+  it("counts emoji as one character each", () => {
+    expect(cleanText("🚀".repeat(100), 100)).toBe("🚀".repeat(100));
+  });
+});

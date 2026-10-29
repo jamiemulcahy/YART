@@ -43,20 +43,29 @@ export const DEFAULT_SETTINGS = {
 } as const;
 
 const INVISIBLE_CHARS = new RegExp(
-  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
-  "[\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F\\u200B-\\u200F\\u2028-\\u202E\\u2060-\\u206F\\uFEFF]",
+  // Control chars (keeping \n), zero-width and bidi controls, BOM, soft hyphen, Hangul/braille
+  // blanks and other "looks empty" fillers, plus Unicode tag characters (surrogate pairs).
+  // eslint-disable-next-line no-control-regex, no-misleading-character-class -- stripping these is the point
+  "[\\u0000-\\u0009\\u000B-\\u001F\\u007F-\\u009F\\u00AD\\u034F\\u115F\\u1160\\u17B4\\u17B5\\u180E\\u200B-\\u200F\\u2028-\\u202E\\u2060-\\u206F\\u2800\\u3164\\uFEFF\\uFFA0]|\\uDB40[\\uDC00-\\uDC7F]",
   "g"
 );
+/** More than two stacked combining marks is "zalgo" text, not language. */
+const STACKED_MARKS = /(\p{M}{2})\p{M}+/gu;
+const HAS_VISIBLE = /[^\s\p{M}]/u;
 
-/** Normalise user text: NFC, strip control chars (keeping newlines), trim, cap blank lines. */
+/**
+ * Normalise user text: NFC, strip invisible/control chars (keeping newlines), tame stacked
+ * combining marks, trim, cap blank lines. Length is counted in characters, not UTF-16 units.
+ */
 export function cleanText(input: string, maxLength: number): string | null {
   const text = input
     .normalize("NFC")
     .replace(INVISIBLE_CHARS, "")
+    .replace(STACKED_MARKS, "$1")
     .replace(/\r\n?/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  if (text.length === 0 || text.length > maxLength) return null;
+  if (!HAS_VISIBLE.test(text) || [...text].length > maxLength) return null;
   return text;
 }
 
