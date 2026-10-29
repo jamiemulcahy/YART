@@ -67,12 +67,17 @@ interface BattleRun {
   nextStrike: number;
   kills: Map<string, { kills: number; bossKills: number }>;
   recentHits: Map<string, number[]>;
+  /** participantId -> last time they sent input; idle players soften the invasion. */
+  activeAt: Map<string, number>;
+  players: number;
   interval: ReturnType<typeof setInterval>;
   dirty: boolean;
 }
 
 const BATTLE_TICK_MS = 200;
 const ACTIVITY_PERSIST_MS = 10 * 60_000;
+const ACTIVE_WINDOW_MS = 4000;
+const MIN_DAMAGE_SCALE = 0.35;
 
 export class RoomDO extends DurableObject<Env> {
   private store: Store;
@@ -1000,6 +1005,8 @@ export class RoomDO extends DurableObject<Env> {
       nextStrike: 0,
       kills: new Map(),
       recentHits: new Map(),
+      activeAt: new Map(),
+      players,
       interval: setInterval(() => this.battleTick(), BATTLE_TICK_MS),
       dirty: false,
     };
@@ -1014,6 +1021,7 @@ export class RoomDO extends DurableObject<Env> {
     if (now < run.live.startsAt || now > run.live.endsAt) return;
     const shipX = Math.min(ARENA_W, Math.max(0, x));
     run.live.ships[me.id] = shipX;
+    run.activeAt.set(me.id, now);
     run.dirty = true;
     const recent = (run.recentHits.get(me.id) ?? []).filter((t) => t > now - 1000);
     const maxPerSec = Math.ceil(1000 / FIRE_INTERVAL_MS) + 1;
@@ -1041,6 +1049,9 @@ export class RoomDO extends DurableObject<Env> {
     if (!run) return;
     const now = Date.now();
     const dead = new Set(run.live.dead);
+    // The script is sized for everyone online; scale damage down when people sit it out.
+    const active = [...run.activeAt.values()].filter((t) => t > now - ACTIVE_WINDOW_MS).length;
+    const dmgScale = Math.min(1, Math.max(MIN_DAMAGE_SCALE, Math.max(1, active) / run.players));
     while (run.nextStrike < run.strikes.length) {
       const s = run.strikes[run.nextStrike] as Strike & { attacker: number };
       if (s.at > now || s.at > run.live.endsAt) break;
@@ -1048,7 +1059,7 @@ export class RoomDO extends DurableObject<Env> {
       if (dead.has(s.attacker)) continue;
       const hp = run.live.topicHp[s.topicId];
       if (hp === undefined || hp <= 0) continue;
-      run.live.topicHp[s.topicId] = Math.max(0, hp - s.dmg);
+      run.live.topicHp[s.topicId] = Math.max(0, hp - s.dmg * dmgScale);
       run.dirty = true;
     }
     const allDead = run.live.dead.length === run.live.script.length;
