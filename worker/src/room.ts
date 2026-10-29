@@ -77,13 +77,16 @@ interface BattleRun {
 const BATTLE_TICK_MS = 200;
 const ACTIVITY_PERSIST_MS = 10 * 60_000;
 const ACTIVE_WINDOW_MS = 4000;
+/** Stored identities per room, online or not. Idle ones are pruned when this fills. */
+const MAX_PARTICIPANT_RECORDS = 200;
+const STRIKE_WINDOW_MS = 60_000;
 const MIN_DAMAGE_SCALE = 0.35;
 
 export class RoomDO extends DurableObject<Env> {
   private store: Store;
   private data: RoomData | null;
   private buckets = new Map<WebSocket, Bucket>();
-  private strikes = new Map<WebSocket, number>();
+  private strikes = new Map<WebSocket, { count: number; since: number }>();
   private holds = new Map<string, { pid: string; until: number }>();
   private battle: BattleRun | null = null;
   private activityPersistedAt = 0;
@@ -259,8 +262,11 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   private strike(ws: WebSocket, code: ErrorCode, message: string): void {
-    const n = (this.strikes.get(ws) ?? 0) + 1;
-    this.strikes.set(ws, n);
+    const now = Date.now();
+    const prev = this.strikes.get(ws);
+    const fresh = !prev || now - prev.since > STRIKE_WINDOW_MS;
+    const n = fresh ? 1 : prev.count + 1;
+    this.strikes.set(ws, { count: n, since: fresh ? now : prev.since });
     if (n >= LIMITS.strikesBeforeClose) {
       ws.close(4008, "Too many bad messages");
       return;
@@ -296,10 +302,12 @@ export class RoomDO extends DurableObject<Env> {
         ws.close(4003, "Room full");
         return;
       }
+      if (data.participants.size >= MAX_PARTICIPANT_RECORDS) this.pruneIdleParticipants();
       if (
-        role === "participant" &&
-        (online.filter((p) => p.role !== "viewer").length >= LIMITS.participants ||
-          data.participants.size >= LIMITS.participants * 4)
+        role !== "owner" &&
+        ((role === "participant" &&
+          online.filter((p) => p.role !== "viewer").length >= LIMITS.participants) ||
+          data.participants.size >= MAX_PARTICIPANT_RECORDS)
       ) {
         this.send(ws, { t: "error", code: "ROOM_FULL", message: "This room is full" });
         ws.close(4003, "Room full");
@@ -333,6 +341,24 @@ export class RoomDO extends DurableObject<Env> {
     this.broadcast({ t: "participant", participant: this.participantView(participant) }, ws);
   }
 
+  /** Forget offline viewers and offline participants who never contributed anything. */
+  private pruneIdleParticipants(): void {
+    const data = this.data as RoomData;
+    const online = new Set(this.joinedSockets().map(([, att]) => att.pid));
+    const contributed = new Set<string>();
+    for (const c of data.cards.values()) contributed.add(c.authorId);
+    for (const n of data.notes.values()) contributed.add(n.authorId);
+    for (const a of data.actions.values()) contributed.add(a.authorId);
+    for (const [pid, mine] of data.shields) if (Object.keys(mine).length > 0) contributed.add(pid);
+    for (const p of [...data.participants.values()]) {
+      if (online.has(p.id) || p.role === "owner" || contributed.has(p.id)) continue;
+      data.participants.delete(p.id);
+      data.shields.delete(p.id);
+      this.store.delete("participant", p.id);
+      this.store.delete("shields", p.id);
+    }
+  }
+
   // ------------------------------------------------------------ Dispatch
 
   private handle(att: Attachment, msg: ClientMessage): void {
@@ -360,6 +386,10 @@ export class RoomDO extends DurableObject<Env> {
       case "rename": {
         const name = cleanLine(msg.name, LIMITS.participantName);
         if (!name) throw new Reject("INVALID_TEXT", `Names must be 1–${LIMITS.participantName} characters`);
+        const lower = name.toLowerCase();
+        if ([...data.participants.values()].some((p) => p.id !== me.id && p.name.toLowerCase() === lower)) {
+          throw new Reject("FORBIDDEN", "Someone already has that name");
+        }
         me.name = name;
         this.store.put("participant", me.id, me);
         this.broadcast({ t: "participant", participant: this.participantView(me) });
@@ -398,7 +428,7 @@ export class RoomDO extends DurableObject<Env> {
               "INVALID_TEXT",
               `Lane descriptions are at most ${LIMITS.laneDescription} characters`
             );
-          const prev = input.id ? existing.get(input.id) : undefined;
+          const prev = input.id && !keep.has(input.id) ? existing.get(input.id) : undefined;
           if (prev) keep.add(prev.id);
           return {
             id: prev?.id ?? newId("l"),
@@ -426,6 +456,12 @@ export class RoomDO extends DurableObject<Env> {
         next.maxShieldsPerTopic = Math.min(next.maxShieldsPerTopic, next.shieldsPerPerson);
         meta.settings = next;
         this.saveMeta();
+        if (
+          next.shieldsPerPerson < before.shieldsPerPerson ||
+          next.maxShieldsPerTopic < before.maxShieldsPerTopic
+        ) {
+          this.clampShields();
+        }
         if (before.hideCards !== next.hideCards || before.showShieldTotals !== next.showShieldTotals) {
           this.sendSnapshots();
         } else {
@@ -535,7 +571,10 @@ export class RoomDO extends DurableObject<Env> {
         contributor();
         const card = data.cards.get(msg.id);
         if (!card) throw new Reject("NOT_FOUND", "That card no longer exists");
-        if (role !== "owner") {
+        if (role === "owner") {
+          // After Defend, removing a card would silently change the votes everyone is discussing.
+          phase("write", "group", "defend");
+        } else {
           if (card.authorId !== me.id) throw new Reject("FORBIDDEN", "That's not your card");
           phase("write");
         }
@@ -549,6 +588,7 @@ export class RoomDO extends DurableObject<Env> {
 
       case "cards.reveal": {
         owner();
+        phase("write");
         if (meta.revealed) return;
         meta.revealed = true;
         this.saveMeta();
@@ -565,6 +605,8 @@ export class RoomDO extends DurableObject<Env> {
         if (hold && hold.pid !== me.id && hold.until > Date.now()) {
           throw new Reject("FORBIDDEN", "Someone else is moving that card");
         }
+        // One card at a time per person, so nobody can freeze the board.
+        for (const [cardId, h] of this.holds) if (h.pid === me.id) this.holds.delete(cardId);
         this.holds.set(msg.id, { pid: me.id, until: Date.now() + LIMITS.holdMs });
         this.broadcastPatch({ holds: this.holdView() });
         return;
@@ -585,10 +627,7 @@ export class RoomDO extends DurableObject<Env> {
         if (meta.groupingLocked) throw new Reject("FORBIDDEN", "Grouping is locked");
         const card = data.cards.get(msg.id);
         if (!card) throw new Reject("NOT_FOUND", "That card no longer exists");
-        const hold = this.holds.get(card.id);
-        if (hold && hold.pid !== me.id && hold.until > Date.now()) {
-          throw new Reject("FORBIDDEN", "Someone else is moving that card");
-        }
+        this.assertNotHeld([card.id, ...(msg.target.kind === "card" ? [msg.target.id] : [])], me.id);
         this.moveCards([card], msg.target);
         if (this.holds.delete(card.id)) this.broadcastPatch({ holds: this.holdView() });
         return;
@@ -601,6 +640,10 @@ export class RoomDO extends DurableObject<Env> {
         const group = data.groups.get(msg.id);
         if (!group) throw new Reject("NOT_FOUND", "That group no longer exists");
         const cards = [...data.cards.values()].filter((c) => c.groupId === group.id);
+        this.assertNotHeld(
+          [...cards.map((c) => c.id), ...(msg.into.kind === "card" ? [msg.into.id] : [])],
+          me.id
+        );
         if (msg.into.kind === "card") {
           const target = data.cards.get(msg.into.id);
           if (!target) throw new Reject("NOT_FOUND", "That card no longer exists");
@@ -620,7 +663,8 @@ export class RoomDO extends DurableObject<Env> {
 
       case "group.rename": {
         contributor();
-        phase("group", "defend", "discuss");
+        phase("group");
+        if (meta.groupingLocked) throw new Reject("FORBIDDEN", "Grouping is locked");
         const group = data.groups.get(msg.id);
         if (!group) throw new Reject("NOT_FOUND", "That group no longer exists");
         const trimmed = msg.title.trim();
@@ -702,6 +746,7 @@ export class RoomDO extends DurableObject<Env> {
       case "topic.discussed": {
         owner();
         phase("discuss", "wrapup");
+        if (!this.topicExists(msg.topicId)) throw new Reject("NOT_FOUND", "That topic no longer exists");
         const discussed = new Set(meta.discuss.discussed);
         if (msg.value) discussed.add(msg.topicId);
         else discussed.delete(msg.topicId);
@@ -751,6 +796,7 @@ export class RoomDO extends DurableObject<Env> {
 
       case "note.remove": {
         contributor();
+        phase("discuss", "wrapup");
         const note = data.notes.get(msg.id);
         if (!note) throw new Reject("NOT_FOUND", "That note no longer exists");
         if (note.authorId !== me.id && role !== "owner")
@@ -803,6 +849,7 @@ export class RoomDO extends DurableObject<Env> {
 
       case "action.remove": {
         contributor();
+        phase("discuss", "wrapup");
         const action = data.actions.get(msg.id);
         if (!action) throw new Reject("NOT_FOUND", "That action no longer exists");
         if (action.authorId !== me.id && role !== "owner")
@@ -829,7 +876,8 @@ export class RoomDO extends DurableObject<Env> {
       throw new Reject("FORBIDDEN", "Add at least one lane first");
 
     if (from === "battle") this.endBattle(false);
-    if (next === "battle" || (from === "battle" && next === "defend")) meta.battle = null;
+    // Results only make sense for the shields they were fought with.
+    if (next === "battle" || next === "defend") meta.battle = null;
     if (from === "write" && b > a) meta.revealed = true;
     this.holds.clear();
     meta.phase = next;
@@ -842,6 +890,9 @@ export class RoomDO extends DurableObject<Env> {
 
   private moveCards(cards: CardRec[], target: MoveTarget): void {
     const data = this.data as RoomData;
+    // If a card's old group dissolves, its notes follow this card.
+    const successors = new Map<string, string>();
+    for (const card of cards) if (card.groupId) successors.set(card.groupId, card.id);
     let groupId: string | null = null;
     if (target.kind === "group") {
       if (!data.groups.has(target.id)) throw new Reject("NOT_FOUND", "That group no longer exists");
@@ -869,11 +920,14 @@ export class RoomDO extends DurableObject<Env> {
       this.store.put("card", card.id, card);
       this.broadcastCard(card);
     }
-    this.tidyAfterGrouping();
+    this.tidyAfterGrouping(successors);
   }
 
-  /** Dissolve groups with fewer than two cards and drop references to topics that no longer exist. */
-  private tidyAfterGrouping(): void {
+  /**
+   * Dissolve groups with fewer than two cards, then move notes and actions on vanished topics to
+   * wherever their cards went. Shields on vanished topics are refunded.
+   */
+  private tidyAfterGrouping(successors = new Map<string, string>()): void {
     const data = this.data as RoomData;
     const counts = new Map<string, CardRec[]>();
     for (const card of data.cards.values()) {
@@ -882,6 +936,7 @@ export class RoomDO extends DurableObject<Env> {
     for (const group of [...data.groups.values()]) {
       const cards = counts.get(group.id) ?? [];
       if (cards.length >= 2) continue;
+      if (cards[0]) successors.set(group.id, cards[0].id);
       for (const card of cards) {
         card.groupId = null;
         this.store.put("card", card.id, card);
@@ -903,8 +958,25 @@ export class RoomDO extends DurableObject<Env> {
     }
     if (shieldsChanged) this.broadcastShields();
 
+    // Follow a vanished topic to where its cards ended up: a card that joined a group, or the
+    // card left behind when a group dissolved.
+    const follow = (topicId: string): string | null => {
+      let id: string | undefined = topicId;
+      for (let i = 0; i < 5 && id; i++) {
+        if (this.topicExists(id)) return id;
+        const card = data.cards.get(id);
+        id = card ? (card.groupId ?? undefined) : successors.get(id);
+      }
+      return null;
+    };
     for (const note of [...data.notes.values()]) {
-      if (!this.topicExists(note.topicId)) {
+      if (this.topicExists(note.topicId)) continue;
+      const next = follow(note.topicId);
+      if (next) {
+        note.topicId = next;
+        this.store.put("note", note.id, note);
+        this.broadcastNote(note);
+      } else {
         data.notes.delete(note.id);
         this.store.delete("note", note.id);
         this.broadcast({ t: "note.removed", id: note.id });
@@ -912,7 +984,7 @@ export class RoomDO extends DurableObject<Env> {
     }
     for (const action of data.actions.values()) {
       if (action.topicId && !this.topicExists(action.topicId)) {
-        action.topicId = null;
+        action.topicId = follow(action.topicId);
         this.store.put("action", action.id, action);
         this.broadcastAction(action);
       }
@@ -1089,8 +1161,9 @@ export class RoomDO extends DurableObject<Env> {
     this.buckets.clear();
     const data = this.data as RoomData;
     const fates: BattleResults["fates"] = {};
-    for (const [topicId, hp] of Object.entries(run.live.topicHp))
-      fates[topicId] = hp > 0 ? "survived" : "fell";
+    for (const [topicId, hp] of Object.entries(run.live.topicHp)) {
+      if (this.topicExists(topicId)) fates[topicId] = hp > 0 ? "survived" : "fell";
+    }
     const stats = data.meta.settings.showBattleStats
       ? [...run.kills.entries()]
           .map(([pid, k]) => {
@@ -1279,6 +1352,41 @@ export class RoomDO extends DurableObject<Env> {
     if (!card) throw new Reject("NOT_FOUND", "That card no longer exists");
     if (card.authorId !== pid) throw new Reject("FORBIDDEN", "That's not your card");
     return card;
+  }
+
+  private assertNotHeld(cardIds: string[], me: string): void {
+    const now = Date.now();
+    for (const id of cardIds) {
+      const hold = this.holds.get(id);
+      if (hold && hold.pid !== me && hold.until > now) {
+        throw new Reject("FORBIDDEN", "Someone else is moving that card");
+      }
+    }
+  }
+
+  /** Bring everyone's shields within the current budget, trimming the most-stacked topics first. */
+  private clampShields(): void {
+    const data = this.data as RoomData;
+    const { shieldsPerPerson, maxShieldsPerTopic } = data.meta.settings;
+    let changed = false;
+    for (const [pid, mine] of data.shields) {
+      const next: Record<string, number> = {};
+      for (const [topicId, n] of Object.entries(mine)) next[topicId] = Math.min(n, maxShieldsPerTopic);
+      let total = Object.values(next).reduce((a, b) => a + b, 0);
+      while (total > shieldsPerPerson) {
+        const [top] = Object.entries(next).sort((x, y) => y[1] - x[1]);
+        if (!top) break;
+        next[top[0]] = top[1] - 1;
+        total--;
+      }
+      const kept = Object.fromEntries(Object.entries(next).filter(([, n]) => n > 0));
+      if (JSON.stringify(kept) !== JSON.stringify(mine)) {
+        data.shields.set(pid, kept);
+        this.store.put("shields", pid, kept);
+        changed = true;
+      }
+    }
+    if (changed) this.broadcastShields();
   }
 
   private cleanAssignee(input: string): string {
