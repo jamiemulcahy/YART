@@ -36,8 +36,8 @@ test("hidden card text never reaches other participants", async () => {
   const mine = await author.next((m) => m.t === "card");
   expect((mine.card as Msg).text).toBe("top secret opinion");
   expect(JSON.stringify(other.messages)).not.toContain("top secret");
-  // Authorship isn't exposed either.
-  expect(JSON.stringify(seen)).not.toContain(String(author.welcome.participantId));
+  // Who wrote it is shown, even while the text is hidden.
+  expect((seen.card as Msg).authorId).toBe(author.welcome.participantId);
 
   owner.send({ t: "cards.reveal" });
   const revealed = await other.next(
@@ -172,4 +172,21 @@ test("battle: plausible hits kill attackers, implausible ones are ignored", asyn
   const stats = (end.results as Msg).stats as { kills: number }[];
   expect(stats[0]?.kills).toBe(1);
   owner.ws.close();
+});
+
+test("the owner can't remove other people's cards", async () => {
+  const { code, ownerKey } = await apiCreateRoom();
+  const owner = await rawSocket(code, { ownerKey });
+  const p = await rawSocket(code);
+  const laneId = (
+    ((owner.messages.find((m) => m.t === "snapshot") as Msg).room as Msg).lanes as { id: string }[]
+  )[0]?.id;
+  owner.send({ t: "phase.set", phase: "write" });
+  await p.next((m) => m.t === "snapshot" && (m.room as Msg).phase === "write");
+  p.send({ t: "card.add", laneId, text: "mine, not yours" });
+  const card = (await owner.next((m) => m.t === "card")).card as Msg;
+  owner.send({ t: "card.remove", id: card.id });
+  await owner.next(isError("FORBIDDEN"));
+  owner.ws.close();
+  p.ws.close();
 });

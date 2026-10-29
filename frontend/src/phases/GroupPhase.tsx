@@ -19,6 +19,7 @@ import { useRoom } from "../room/RoomContext";
 import { laneVar } from "../lib/style";
 import { CardText, LaneHeader, PhaseIntro } from "../components/common";
 import { InlineEdit } from "../components/InlineEdit";
+import { CardAuthor } from "../components/CardAuthor";
 import { WriteLane } from "./WritePhase";
 
 // Drag/drop ids: "card:<id>", "group:<id>", "lane:<id>"
@@ -142,22 +143,30 @@ function GroupLane(props: {
   const { lane, topics } = props;
   const { setNodeRef, isOver } = useDroppable({ id: `lane:${lane.id}` });
   const count = topics.reduce((n, t) => n + t.cards.length, 0);
+  const groups = topics.filter((t) => t.kind === "group");
+  const loose = topics.filter((t) => t.kind === "card");
   return (
     <section ref={setNodeRef} className={`lane ${isOver ? "drop-over" : ""}`} aria-label={lane.title}>
       <LaneHeader lane={lane} count={count} />
-      <ul className="postits">
-        {topics.map((topic) => (
-          <li key={topic.id}>
-            {topic.kind === "group" ? (
+      {/* Groups span the lane so their cards can sit side by side; loose cards flow below. */}
+      {groups.length > 0 && (
+        <ul className="group-list">
+          {groups.map((topic) => (
+            <li key={topic.id}>
               <GroupBox topic={topic} canDrag={props.canDrag} allTopics={props.allTopics} meId={props.meId} />
-            ) : (
-              <DraggableCard
-                card={topic.cards[0] as Card}
-                canDrag={props.canDrag}
-                allTopics={props.allTopics}
-                meId={props.meId}
-              />
-            )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <ul className="postits">
+        {loose.map((topic) => (
+          <li key={topic.id}>
+            <DraggableCard
+              card={topic.cards[0] as Card}
+              canDrag={props.canDrag}
+              allTopics={props.allTopics}
+              meId={props.meId}
+            />
           </li>
         ))}
       </ul>
@@ -213,7 +222,7 @@ function GroupBox(props: { topic: Topic; canDrag: boolean; allTopics: Topic[]; m
           </button>
         )}
       </div>
-      <ul className="group-cards">
+      <ul className="postits group-cards">
         {topic.cards.map((card) => (
           <li key={card.id}>
             <DraggableCard
@@ -253,6 +262,7 @@ function DraggableCard(props: { card: Card; canDrag: boolean; allTopics: Topic[]
         role="article"
       >
         <CardText text={text} />
+        <CardAuthor card={card} />
         {heldByOther && <span className="held-by">{heldByOther.name} is moving this</span>}
         {props.canDrag && (
           <select

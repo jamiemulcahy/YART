@@ -1008,42 +1008,42 @@ textarea {
   letter-spacing: 0.1em;
   user-select: none;
 }
-.mine-tag {
-  position: absolute;
-  bottom: 8px;
-  right: 10px;
-  font-size: 10px;
+.card-author {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 0;
+}
+.card-author-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-author .dot {
+  width: 7px;
+  height: 7px;
+}
+.card-author.mine {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--primary);
   font-weight: 700;
+  color: var(--accent);
+}
+/* Inline after the text inside a group's list on the Defend board. */
+.topic-cards .card-author {
+  display: inline-flex;
+  margin: 0 0 0 4px;
+  vertical-align: middle;
 }
 .card-actions {
   display: flex;
   gap: 6px;
   margin-top: 8px;
 }
-/* Leave room for the "yours" tag in the bottom corner. */
-.card.mine {
-  padding-bottom: 22px;
-}
-.card.mine:has(.card-actions) {
-  padding-bottom: 10px;
-}
-/* Owner moderation stays out of the way until you hover or tab to a card. */
-.card-actions.moderate {
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-.card:hover .card-actions.moderate,
-.card:focus-within .card-actions.moderate {
-  opacity: 1;
-}
-@media (hover: none) {
-  .card-actions.moderate {
-    opacity: 1;
-  }
-}
+
 .card.editing textarea {
   background: var(--bg-2);
 }
@@ -1315,16 +1315,32 @@ textarea {
 .group-box.is-dragging {
   opacity: 0.4;
 }
+.group-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
 .group-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
 }
+/* One line for the name; long names end in "…". */
 .group-title {
   flex: 1;
-  font-weight: 700;
   min-width: 0;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.group-title .placeholder {
+  font-style: italic;
 }
 .group-count {
   font-size: 12px;
@@ -1344,12 +1360,7 @@ textarea {
   touch-action: none;
 }
 .group-cards {
-  list-style: none;
   margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 .late-cards {
   margin-bottom: 16px;

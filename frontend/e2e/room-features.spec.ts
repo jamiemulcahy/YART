@@ -264,3 +264,33 @@ test("unknown room shows a friendly message", async ({ page }) => {
   await page.getByRole("button", { name: "Join room" }).click();
   await expect(page).toHaveURL(/\/r\/ZZZZZZ$/);
 });
+
+test("cards show who wrote them, and only authors can remove their cards", async ({
+  page: owner,
+  browser,
+}) => {
+  const code = await createRoom(owner);
+  const alice = await joinRoom(browser, code);
+  const aliceName = await myName(alice);
+  await nextPhase(owner, "Write");
+  await addCard(alice, "Mad", "Written by Alice");
+  await addCard(owner, "Sad", "Written by the owner");
+
+  const aliceCard = owner.getByRole("article").filter({ hasText: "Written by Alice" });
+  await expect(aliceCard).toContainText(aliceName);
+  // The owner can't remove someone else's card…
+  await expect(aliceCard.getByRole("button")).toHaveCount(0);
+  // …and sees their own marked as theirs.
+  await expect(owner.getByRole("article").filter({ hasText: "Written by the owner" })).toContainText("yours");
+
+  // Names follow renames.
+  await alice.locator(".people-btn").click();
+  await alice.getByRole("button", { name: /Your name/ }).click();
+  await alice.getByRole("textbox", { name: "Your name" }).fill("Alice Again");
+  await alice.getByRole("textbox", { name: "Your name" }).press("Enter");
+  await expect(aliceCard).toContainText("Alice Again");
+
+  // Names carry through grouping too.
+  await nextPhase(owner, "Group");
+  await expect(owner.getByRole("article", { name: "Written by Alice" })).toContainText("Alice Again");
+});

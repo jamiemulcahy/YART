@@ -108,10 +108,10 @@ Lanes keep a generous minimum width (600 px) and cards flow like post-its in bal
 
 ### Cards
 
-- Cards carry no author indicator at all (a colour would map back to a name via the people list) — not even for the owner. Your own cards are marked "yours". The server keeps authorship to permit edits.
+- Other people's cards show the author's (anonymous) name and colour; your own are marked "yours".
 - Owner option **Allow late cards** (default off): permits adding cards during Group.
 - Author can edit or delete their own card in Write. In Group onwards, card text is frozen (edits would change what people voted for).
-- Owner can remove any readable card (moderation) up to the end of Defend; after that, removing one would silently change the votes being discussed.
+- Only a card's author can remove it, and only during Write. The owner can't remove other people's cards.
 - Plain text only; rendered as text, never HTML. Line breaks preserved.
 
 ### Grouping
@@ -345,7 +345,7 @@ Lean on end-to-end and integration testing first; unit tests only where there's 
 ## 18. Decisions (resolved questions)
 
 1. Co-host link / handing over driving: **post-MVP**.
-2. Card authorship: **colour only**, no names, even for the owner.
+2. Card authorship: **shown by name** on other people's cards (revised from colour-only after playtesting).
 3. Late cards during Group: **owner option, off by default**.
 4. Battle stats by (anonymous) name: **on**, owner can hide.
 5. Room expiry: **30 days** after last activity, plus owner "delete room now".

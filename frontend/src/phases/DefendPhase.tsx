@@ -1,6 +1,7 @@
 import type { Topic } from "@yart/shared";
 import { sounds } from "../lib/sounds";
 import { useRoom } from "../room/RoomContext";
+import { CardAuthor } from "../components/CardAuthor";
 import { laneVar } from "../lib/style";
 import { LaneHeader, PhaseIntro } from "../components/common";
 
@@ -77,7 +78,9 @@ function DefendTopic(props: { topic: Topic; left: number }) {
       {topic.kind === "group" && <h4 className="topic-title">{topic.title}</h4>}
       <ul className="topic-cards">
         {topic.cards.map((c) => (
-          <li key={c.id}>{c.text}</li>
+          <li key={c.id}>
+            {c.text} <CardAuthor card={c} />
+          </li>
         ))}
       </ul>
       <div className="defend-controls">

@@ -7,6 +7,7 @@ import { useDrafts } from "../room/drafts";
 import type { Draft } from "../room/drafts";
 import { laneVar } from "../lib/style";
 import { CardText, HiddenCardText, LaneHeader, PhaseIntro } from "../components/common";
+import { CardAuthor } from "../components/CardAuthor";
 
 const PUBLISH_TIMEOUT_MS = 6000;
 const PUBLISH_GAP_MS = 80;
@@ -230,12 +231,10 @@ function DraftCard(props: {
 
 function WriteCard(props: { card: Card }) {
   const { card } = props;
-  const { send, room, isOwner } = useRoom();
+  const { send, room } = useRoom();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(card.text ?? "");
   const canEdit = card.mine && room.phase === "write";
-  // Facilitator moderation: remove anyone's card once it's readable.
-  const canModerate = isOwner && !card.mine && card.text !== null && room.phase === "write";
 
   if (editing) {
     const save = () => {
@@ -275,7 +274,7 @@ function WriteCard(props: { card: Card }) {
   return (
     <article className={`card ${card.mine ? "mine" : ""} ${card.text === null ? "face-down" : ""}`}>
       {card.text === null ? <HiddenCardText /> : <CardText text={card.text} />}
-      {card.mine && <span className="mine-tag">yours</span>}
+      <CardAuthor card={card} />
       {canEdit && (
         <div className="card-actions">
           <button
@@ -289,17 +288,6 @@ function WriteCard(props: { card: Card }) {
           </button>
           <button className="btn small ghost" onClick={() => send({ t: "card.remove", id: card.id })}>
             Delete
-          </button>
-        </div>
-      )}
-      {canModerate && (
-        <div className="card-actions moderate">
-          <button
-            className="btn small ghost"
-            onClick={() => send({ t: "card.remove", id: card.id })}
-            aria-label={`Remove card: ${card.text ?? ""}`}
-          >
-            Remove
           </button>
         </div>
       )}

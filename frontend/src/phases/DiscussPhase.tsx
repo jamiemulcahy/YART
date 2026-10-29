@@ -5,6 +5,7 @@ import type { ActionItem, Topic } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
 import { laneVar } from "../lib/style";
 import { CardText, PhaseIntro } from "../components/common";
+import { CardAuthor } from "../components/CardAuthor";
 
 export function DiscussPhase() {
   const { room, topics, isOwner, send } = useRoom();
@@ -127,6 +128,7 @@ function OpenTopic(props: { topic: Topic; rank: number }) {
                 {lane?.title}
               </span>
               <CardText text={c.text ?? ""} />
+              <CardAuthor card={c} />
             </li>
           );
         })}
