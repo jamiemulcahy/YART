@@ -98,7 +98,7 @@ Owner option for **published** cards, set in Setup and changeable during Write: 
 - On any visibility change, the server sends each socket a fresh, **per-viewer filtered snapshot** of cards. (Simpler than "notify then client re-fetches", and the same code path as reconnect.)
 - The server filters per viewer on every card message, so hidden text never leaves the DO for anyone but the author.
 
-Lanes keep a generous minimum width (600 px) and cards flow like post-its in balanced columns of uneven heights. scroll sideways when there are many. The owner picks each lane's colour in Setup; cards are tinted by their lane.
+Lanes keep a generous minimum width (600 px) and cards flow like post-its in balanced columns of uneven heights. Lanes scroll sideways when there are many. The owner picks each lane's colour in Setup; cards are tinted by their lane.
 
 ## 8. Cards and grouping
 
