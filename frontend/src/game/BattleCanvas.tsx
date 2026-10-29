@@ -84,15 +84,24 @@ export function BattleCanvas(props: Props) {
     }));
     let frame = 0;
 
+    // Fit the 16:9 arena inside whatever space is left below the header.
     const resize = () => {
-      const rect = canvas.getBoundingClientRect();
+      const parent = canvas.parentElement;
+      if (!parent) return;
+      const top = parent.getBoundingClientRect().top;
+      const availW = parent.clientWidth;
+      const availH = Math.max(240, window.innerHeight - top - 8);
+      const w = Math.min(availW, (availH * ARENA_W) / ARENA_H);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${(w * ARENA_H) / ARENA_W}px`;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(((w * ARENA_H) / ARENA_W) * dpr);
     };
     resize();
     const ro = new ResizeObserver(resize);
-    ro.observe(canvas);
+    if (canvas.parentElement) ro.observe(canvas.parentElement);
+    window.addEventListener("resize", resize);
 
     const toArenaX = (clientX: number) => {
       const rect = canvas.getBoundingClientRect();
@@ -385,6 +394,7 @@ export function BattleCanvas(props: Props) {
     return () => {
       cancelAnimationFrame(frame);
       ro.disconnect();
+      window.removeEventListener("resize", resize);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointerup", onPointerUp);

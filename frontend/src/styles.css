@@ -1214,11 +1214,13 @@ textarea {
 .phase.battle.live {
   margin: -20px;
 }
+.phase.battle.live {
+  display: flex;
+  justify-content: center;
+  background: #050816;
+}
 .battle-canvas {
   display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: calc(100vh - 110px);
   background: #050816;
   cursor: crosshair;
   touch-action: none;
@@ -1270,11 +1272,15 @@ textarea {
   gap: 20px;
   align-items: start;
 }
+.topic-rank {
+  min-width: 0;
+}
 .topic-rank ol {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 .rank-row {
@@ -1322,6 +1328,7 @@ button.rank-row:hover {
   white-space: nowrap;
 }
 .topic-detail {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1433,6 +1440,9 @@ button.rank-row:hover {
 }
 
 /* Wrap-up */
+.wrapup-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+}
 .export-buttons {
   display: flex;
   gap: 8px;

@@ -63,7 +63,7 @@ function DefendTopic(props: { topic: Topic; left: number }) {
   const { topic, left } = props;
   const { room, send, isViewer } = useRoom();
   const mine = room.shields.mine[topic.id] ?? 0;
-  const total = room.shields.totals?.[topic.id];
+  const total = room.shields.totals ? (room.shields.totals[topic.id] ?? 0) : undefined;
   const strength = total ?? mine;
   const canAdd = !isViewer && left > 0 && mine < room.settings.maxShieldsPerTopic;
   const level = Math.min(5, strength);

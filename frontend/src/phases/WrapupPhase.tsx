@@ -7,7 +7,10 @@ import { ActionList } from "./DiscussPhase";
 export function WrapupPhase() {
   const { room, topics } = useRoom();
   const markdown = useMemo(() => exportMarkdown(room), [room]);
-  const ranked = rankTopics(topics, room.shields.totals ?? {}).slice(0, 5);
+  const totals = room.shields.totals ?? {};
+  const ranked = rankTopics(topics, totals)
+    .filter((t) => (totals[t.id] ?? 0) > 0)
+    .slice(0, 5);
   const [copied, setCopied] = useState(false);
   const people = room.participants.filter((p) => p.role !== "viewer").length;
 

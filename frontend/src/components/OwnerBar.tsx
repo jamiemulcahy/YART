@@ -42,9 +42,9 @@ export function OwnerBar() {
               {room.groupingLocked ? "Unlock grouping" : "Lock grouping"}
             </button>
           )}
-          {room.phase === "battle" && !battle && (
-            <button className="btn primary" onClick={() => send({ t: "battle.launch" })}>
-              {room.battle ? "Play again" : "Launch battle!"}
+          {room.phase === "battle" && !battle && room.battle && (
+            <button className="btn" onClick={() => send({ t: "battle.launch" })}>
+              Play again
             </button>
           )}
           {room.phase === "battle" && battle && (
