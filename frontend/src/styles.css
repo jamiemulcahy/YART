@@ -639,6 +639,13 @@ textarea {
   font: inherit;
   text-align: center;
 }
+.timer-preview {
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
 .timer-btn {
   background: none;
   border: 0;
@@ -923,8 +930,8 @@ textarea {
 }
 .mine-tag {
   position: absolute;
-  top: 6px;
-  right: 8px;
+  bottom: 8px;
+  right: 10px;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -935,6 +942,13 @@ textarea {
   display: flex;
   gap: 6px;
   margin-top: 8px;
+}
+/* Leave room for the "yours" tag in the bottom corner. */
+.card.mine {
+  padding-bottom: 22px;
+}
+.card.mine:has(.card-actions) {
+  padding-bottom: 10px;
 }
 /* Owner moderation stays out of the way until you hover or tab to a card. */
 .card-actions.moderate {
@@ -1746,22 +1760,38 @@ button.rank-row:hover {
 .postits > li {
   break-inside: avoid;
   margin-bottom: 12px;
-  /* Columns clip box shadows and the tilt without a little room. */
+  /* Columns clip box shadows and the hover wiggle without a little room. */
   padding: 2px;
 }
 .postits > li > .card,
 .postits > li > .card-drop > .card,
 .postits > li > .defend-topic {
   min-height: 84px;
-  transform: rotate(var(--tilt, 0deg));
-  transition: transform 0.15s;
   font-size: 14px;
 }
-.postits > li > .card:hover,
+/* A little wiggle when you pick a post-it up with the pointer. */
+.postits > li > .card:not(.editing):hover,
 .postits > li > .card-drop > .card:hover,
-.postits > li > .defend-topic:hover,
-.postits > li > .card.editing {
-  transform: none;
+.postits > li > .defend-topic:hover {
+  animation: wiggle 0.35s ease-in-out;
+}
+@keyframes wiggle {
+  25% {
+    transform: rotate(-1.2deg);
+  }
+  50% {
+    transform: rotate(1deg);
+  }
+  75% {
+    transform: rotate(-0.5deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .postits > li > .card:hover,
+  .postits > li > .card-drop > .card:hover,
+  .postits > li > .defend-topic:hover {
+    animation: none;
+  }
 }
 .postits.drafts {
   margin-bottom: 4px;

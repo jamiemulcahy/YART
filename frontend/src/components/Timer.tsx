@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LIMITS } from "@yart/shared";
-import { formatDuration, parseDuration } from "../lib/format";
+import { LIMITS, formatDuration, parseDuration } from "@yart/shared";
 import { sounds } from "../lib/sounds";
 import { useRoom } from "../room/RoomContext";
 
@@ -45,13 +44,15 @@ export function Timer() {
     ? "Time's up"
     : `Time left ${formatDuration(remaining)}${timer.status === "paused" ? ", paused" : ""}`;
 
+  const preview = editing ? parseDuration(draft) : null;
+
   const commit = () => {
     setEditing(false);
     if (cancelled.current) return;
     if (draft.trim() === formatDuration(timer.durationMs)) return;
     const ms = parseDuration(draft);
     if (ms === null) {
-      toast("Use minutes and seconds like 1:30, or 45s");
+      toast("Try 1:30, 45s, or digits like 30 (= 0:30)");
     } else if (ms < LIMITS.timerMinMs || ms > LIMITS.timerMaxMs) {
       toast("Timers can be 5 seconds to 60 minutes");
     } else {
@@ -62,23 +63,29 @@ export function Timer() {
   return (
     <div className={`timer ${finished ? "done" : timer.status}`}>
       {editing ? (
-        <input
-          className="timer-input"
-          aria-label="Timer length (m:ss)"
-          value={draft}
-          autoFocus
-          // Select the current value so typing replaces it rather than appending.
-          onFocus={(e) => e.currentTarget.select()}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-            if (e.key === "Escape") {
-              cancelled.current = true;
-              e.currentTarget.blur();
-            }
-          }}
-        />
+        <>
+          <input
+            className="timer-input"
+            aria-label="Timer length"
+            placeholder="m:ss"
+            value={draft}
+            autoFocus
+            // Select the current value so typing replaces it rather than appending.
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") {
+                cancelled.current = true;
+                e.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="timer-preview" aria-live="polite">
+            {preview === null ? "?" : `= ${formatDuration(preview)}`}
+          </span>
+        </>
       ) : isOwner && !running ? (
         <button
           className="timer-value editable"

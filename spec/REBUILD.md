@@ -81,7 +81,7 @@ Lane templates: Mad/Sad/Glad · Liked/Learned/Lacked/Longed for · Start/Stop/Co
 A facilitation tool only — not tied to phases and never enforces anything.
 
 - Owner sets a duration (5 s – 60 min), and can **start**, **pause**, **resume**, **reset**, **restart** at any time, any number of times.
-- Compact, in the header: the owner sees `m:ss ▶ ↺` and clicks the time to change the length (accepts `5`, `1:30`, `45s`). Participants only see it while it's in use. Changing the length while paused keeps it paused at the new length.
+- Compact, in the header: the owner sees `m:ss ▶ ↺` and clicks the time to change the length: digits fill in microwave style (`30` = 0:30, `130` = 1:30, `500` = 5:00), and `1:30`, `45s`, `2m` also work, with a live preview. Participants only see it while it's in use. Changing the length while paused keeps it paused at the new length.
 - Server state: `{ status: 'idle' | 'running' | 'paused' | 'done', durationMs, endsAt?, remainingMs? }`.
 - Clients render the countdown from `endsAt` adjusted by their measured clock offset (§12.3). Everyone sees the same time; refreshing doesn't change it.
 - At zero: every client plays an alarm sound and shows a "Time's up" state. Per-user mute toggle (persisted locally). Browsers block audio until the user has interacted with the page, so the join flow must include a click (the "Join" button counts).

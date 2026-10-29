@@ -5,7 +5,7 @@ import type { Card, Lane } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
 import { useDrafts } from "../room/drafts";
 import type { Draft } from "../room/drafts";
-import { laneVar, tilt } from "../lib/style";
+import { laneVar } from "../lib/style";
 import { CardText, HiddenCardText, LaneHeader, PhaseIntro } from "../components/common";
 
 const PUBLISH_TIMEOUT_MS = 6000;
@@ -47,7 +47,7 @@ export function WriteLane(props: { lane: Lane; cards: Card[]; trayOnly?: boolean
         <div className="lane-board">
           <ul className="postits">
             {cards.map((card) => (
-              <li key={card.id} style={tilt(card.id)}>
+              <li key={card.id}>
                 <WriteCard card={card} />
               </li>
             ))}

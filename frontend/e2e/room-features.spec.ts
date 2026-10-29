@@ -62,7 +62,12 @@ test("shared timer: set, run, pause, edit while paused, alarm for everyone", asy
     await owner.keyboard.press("Enter");
   };
 
-  // Lengths in m:ss replace the old value.
+  // Digits fill in microwave style (30 = 0:30) with a live preview; m:ss works too.
+  await owner.getByRole("timer").click();
+  await owner.keyboard.type("30");
+  await expect(owner.getByText("= 0:30")).toBeVisible();
+  await owner.keyboard.press("Enter");
+  await expect(owner.getByRole("timer")).toHaveText("0:30");
   await setLength("2:30");
   await expect(owner.getByRole("timer")).toHaveText("2:30");
   await owner.getByRole("button", { name: "Start timer" }).click();
@@ -81,7 +86,7 @@ test("shared timer: set, run, pause, edit while paused, alarm for everyone", asy
   // Nonsense is refused with a hint and leaves the timer alone; Escape cancels.
   await owner.getByRole("button", { name: "Pause timer" }).click();
   await setLength("banana");
-  await expect(owner.getByText("Use minutes and seconds like 1:30, or 45s")).toBeVisible();
+  await expect(owner.getByText("Try 1:30, 45s, or digits like 30 (= 0:30)")).toBeVisible();
   await owner.getByRole("timer").click();
   await owner.keyboard.type("9:00");
   await owner.keyboard.press("Escape");

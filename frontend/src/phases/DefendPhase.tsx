@@ -1,7 +1,7 @@
 import type { Topic } from "@yart/shared";
 import { sounds } from "../lib/sounds";
 import { useRoom } from "../room/RoomContext";
-import { laneVar, tilt } from "../lib/style";
+import { laneVar } from "../lib/style";
 import { LaneHeader, PhaseIntro } from "../components/common";
 
 export function DefendPhase() {
@@ -47,7 +47,7 @@ export function DefendPhase() {
               <LaneHeader lane={lane} />
               <ul className="postits wide">
                 {laneTopics.map((topic) => (
-                  <li key={topic.id} style={tilt(topic.id)}>
+                  <li key={topic.id}>
                     <DefendTopic topic={topic} left={left} />
                   </li>
                 ))}
