@@ -1489,6 +1489,10 @@ button.rank-row:hover {
 
 /* ---------- Small screens */
 @media (max-width: 900px) {
+  /* On phones people are usually joining, not hosting. */
+  .landing-panels > .panel:last-child {
+    order: -1;
+  }
   .landing-panels,
   .discuss-layout,
   .notes-actions {
