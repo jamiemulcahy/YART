@@ -1,3 +1,5 @@
+import type { Phase } from "@yart/shared";
+
 const API_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 export interface CreatedRoom {
@@ -19,11 +21,19 @@ export async function createRoom(
   return { code: body.code, ownerKey: body.ownerKey };
 }
 
-export async function roomInfo(code: string): Promise<{ exists: boolean; name?: string }> {
+export interface RoomInfo {
+  exists: boolean;
+  name?: string;
+  phase?: Phase;
+  lastActivity?: number;
+  online?: number;
+}
+
+export async function roomInfo(code: string): Promise<RoomInfo> {
   const res = await fetch(`${API_URL}/api/rooms/${encodeURIComponent(code)}`);
   if (res.status === 404) return { exists: false };
   if (!res.ok) throw new Error("Couldn't reach the server");
-  return (await res.json()) as { exists: boolean; name?: string };
+  return (await res.json()) as RoomInfo;
 }
 
 export function socketUrl(code: string): string {

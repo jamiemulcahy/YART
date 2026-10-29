@@ -58,6 +58,10 @@ This is the old app's biggest failure. Rules:
 6. Owner proves ownership by including `ownerKey` in `hello`. Secrets go in the first message, **never in query strings** (they end up in logs).
 7. Client auto-reconnects with backoff; on reconnect the server sends a full snapshot (§12), so there's no client-side "catch up" logic.
 
+### Your rooms
+
+The landing page lists rooms this browser can get back into (it holds their owner key or participant token): name, code, your role, current phase, who's online and last activity, most recent first. It lives in localStorage, so it's per browser — no accounts. Rooms that have expired or been deleted drop off automatically; "Forget" removes a room and its keys (with a warning when that means losing facilitator access).
+
 ## 5. Phases
 
 Owner-controlled. Every phase change is broadcast and everyone's UI follows.

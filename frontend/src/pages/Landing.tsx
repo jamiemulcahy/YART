@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { LANE_TEMPLATES, LIMITS } from "@yart/shared";
 import { createRoom, normaliseCode } from "../lib/api";
 import { storage } from "../lib/storage";
+import { YourRooms } from "../components/YourRooms";
 
 export function Landing() {
   const navigate = useNavigate();
@@ -49,6 +50,7 @@ export function Landing() {
         </p>
       </header>
 
+      <YourRooms />
       <main className="landing-panels">
         <form className="panel" onSubmit={onCreate} aria-labelledby="create-heading">
           <h2 id="create-heading">Start a retro</h2>

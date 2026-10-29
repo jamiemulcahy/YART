@@ -37,6 +37,19 @@ export function RoomPage() {
   const conn = useRoomConnection(code, enabled, joinAs === "viewer");
   const { state } = conn;
 
+  // Remember this room so it shows under "Your rooms" on the landing page.
+  const roomName = state.room?.name;
+  const myRole = state.me?.role;
+  useEffect(() => {
+    if (roomName !== undefined && myRole) storage.rememberRoom(code, roomName, myRole);
+  }, [code, roomName, myRole]);
+
+  // A room that's gone can't be reopened, so stop listing it.
+  const gone = lookup.state === "missing" || state.status === "deleted";
+  useEffect(() => {
+    if (gone) storage.forgetRoom(code);
+  }, [gone, code]);
+
   useEffect(() => {
     const name = state.room?.name ?? (lookup.state === "found" ? lookup.name : "");
     document.title = name ? `${name} · YART` : "YART";
