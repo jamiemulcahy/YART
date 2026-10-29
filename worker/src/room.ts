@@ -12,8 +12,7 @@ import {
   cleanLine,
   cleanText,
   clientMessage,
-  generateScript,
-  layoutTiles,
+  planBattle,
   nextColour,
   plausibleHit,
   randomName,
@@ -434,7 +433,7 @@ export class RoomDO extends DurableObject<Env> {
             id: prev?.id ?? newId("l"),
             title,
             description,
-            colour: prev?.colour ?? this.freeLaneColour(meta.lanes, i),
+            colour: input.colour?.toLowerCase() ?? prev?.colour ?? this.freeLaneColour(meta.lanes, i),
           };
         });
         for (const lane of meta.lanes) {
@@ -1041,24 +1040,32 @@ export class RoomDO extends DurableObject<Env> {
     const inBattle = new Set(ranked.map((t) => t.id));
     // Lay out in board order, not rank order, so favourites aren't all in one corner.
     const ordered = this.topics().filter((t) => inBattle.has(t.id));
-    const tiles = layoutTiles(ordered.map((t) => t.id));
     const players = Math.max(1, this.onlineParticipants().filter((p) => p.role !== "viewer").length);
     const startsAt = Date.now() + COUNTDOWN_MS;
-    const endsAt = startsAt + data.meta.settings.battleDurationSec * 1000;
     const seed = crypto.getRandomValues(new Uint32Array(1))[0] as number;
-    const script = generateScript({
-      tiles,
+    // One level per lane, in board order.
+    const lanes = data.meta.lanes
+      .map((lane) => ({
+        laneId: lane.id,
+        title: lane.title,
+        topicIds: ordered.filter((t) => t.laneId === lane.id).map((t) => t.id),
+      }))
+      .filter((l) => l.topicIds.length > 0);
+    const { levels, tiles, script } = planBattle({
+      lanes,
       shields: totals,
       players,
       startsAt,
-      endsAt,
+      levelMs: data.meta.settings.battleDurationSec * 1000,
       rand: seededRandom(seed),
     });
+    const endsAt = levels.at(-1)?.endsAt ?? startsAt;
     const topicHp: Record<string, number> = {};
     for (const t of ordered) topicHp[t.id] = topicMaxHp(totals[t.id] ?? 0);
     const live: BattleLive = {
       startsAt,
       endsAt,
+      levels,
       tiles,
       script,
       topicHp,
@@ -1161,8 +1168,14 @@ export class RoomDO extends DurableObject<Env> {
     this.buckets.clear();
     const data = this.data as RoomData;
     const fates: BattleResults["fates"] = {};
-    for (const [topicId, hp] of Object.entries(run.live.topicHp)) {
-      if (this.topicExists(topicId)) fates[topicId] = hp > 0 ? "survived" : "fell";
+    // Only topics whose level actually started have a fate.
+    const now = Date.now();
+    const fought = new Set(run.live.levels.flatMap((l, i) => (l.startsAt <= now ? [i] : [])));
+    for (const tile of run.live.tiles) {
+      const hp = run.live.topicHp[tile.topicId] ?? 0;
+      if (fought.has(tile.level) && this.topicExists(tile.topicId)) {
+        fates[tile.topicId] = hp > 0 ? "survived" : "fell";
+      }
     }
     const stats = data.meta.settings.showBattleStats
       ? [...run.kills.entries()]

@@ -16,7 +16,7 @@ import type {
   ShieldState,
   TimerState,
 } from "./types";
-import type { AttackerScript, TopicTile } from "./battle";
+import type { AttackerScript, BattleLevel, TopicTile } from "./battle";
 
 const id = z.string().min(1).max(40);
 // Text limits are enforced after cleaning; this only bounds the raw payload.
@@ -26,6 +26,10 @@ const laneInput = z.object({
   id: id.optional(),
   title: rawText(LIMITS.laneTitle),
   description: rawText(LIMITS.laneDescription),
+  colour: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
 });
 
 const settingsPatch = z
@@ -129,6 +133,7 @@ export type ErrorCode =
 export interface BattleLive {
   startsAt: number;
   endsAt: number;
+  levels: BattleLevel[];
   tiles: TopicTile[];
   script: AttackerScript[];
   /** topicId -> current hp */

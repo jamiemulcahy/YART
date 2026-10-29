@@ -20,8 +20,9 @@ export const LIMITS = {
   timerMaxMs: 60 * 60_000,
   shieldsPerPersonMin: 1,
   shieldsPerPersonMax: 20,
-  battleDurationMinSec: 60,
-  battleDurationMaxSec: 180,
+  /** Seconds per battle level (one level per lane). */
+  battleDurationMinSec: 30,
+  battleDurationMaxSec: 90,
   /** Sustained inbound messages per second, per socket. */
   ratePerSec: 20,
   rateBurst: 40,
@@ -33,12 +34,13 @@ export const LIMITS = {
 } as const;
 
 export const DEFAULT_SETTINGS = {
-  hideCards: true,
+  // Drafts are private already, so published cards are visible by default.
+  hideCards: false,
   allowLateCards: false,
   shieldsPerPerson: 5,
   maxShieldsPerTopic: 3,
   showShieldTotals: false,
-  battleDurationSec: 90,
+  battleDurationSec: 30,
   showBattleStats: true,
 } as const;
 

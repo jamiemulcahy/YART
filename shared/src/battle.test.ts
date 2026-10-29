@@ -4,10 +4,13 @@ import {
   ARENA_W,
   GRUNT,
   attackerPos,
+  LEVEL_GAP_MS,
   bossCount,
+  currentLevel,
   generateScript,
   gruntsPerTopic,
   layoutTiles,
+  planBattle,
   plausibleHit,
   seededRandom,
 } from "./battle";
@@ -119,5 +122,39 @@ describe("plausibleHit", () => {
   it("rejects hits before the attacker spawns", () => {
     const before = attacker.waypoints[0]!.at - 10;
     expect(plausibleHit(attacker, before, pos.x, before)).toBe(false);
+  });
+});
+
+describe("planBattle", () => {
+  const plan = planBattle({
+    lanes: [
+      { laneId: "a", title: "Mad", topicIds: ["t1", "t2"] },
+      { laneId: "b", title: "Glad", topicIds: ["t3"] },
+    ],
+    shields: {},
+    players: 2,
+    startsAt: 1000,
+    levelMs: 30_000,
+    rand: seededRandom(11),
+  });
+
+  it("runs one level per lane, back to back with a breather", () => {
+    expect(plan.levels.map((l) => l.title)).toEqual(["Mad", "Glad"]);
+    expect(plan.levels[1]!.startsAt).toBe(plan.levels[0]!.endsAt + LEVEL_GAP_MS);
+    expect(currentLevel(plan.levels, plan.levels[0]!.endsAt + 1)).toBe(1);
+  });
+
+  it("keeps each level's tiles and attackers to itself", () => {
+    expect(plan.tiles.filter((t) => t.level === 0).map((t) => t.topicId)).toEqual(["t1", "t2"]);
+    const ids = new Set(plan.script.map((a) => a.id));
+    expect(ids.size).toBe(plan.script.length);
+    for (const a of plan.script) {
+      const level = plan.levels[a.level]!;
+      for (const s of a.strikes) {
+        expect(s.at).toBeGreaterThanOrEqual(level.startsAt);
+        expect(s.at).toBeLessThan(level.endsAt);
+        expect(plan.tiles.find((t) => t.topicId === s.topicId)!.level).toBe(a.level);
+      }
+    }
   });
 });

@@ -15,15 +15,17 @@ export const BULLET_SPEED = 1500; // units/s
 export const FIRE_INTERVAL_MS = 220;
 export const MAX_BATTLE_TOPICS = 40;
 export const COUNTDOWN_MS = 3500;
+/** Breather between levels, shown as "Level 2 — Sad". */
+export const LEVEL_GAP_MS = 4000;
 
-export const BASE_TOPIC_HP = 20;
+export const BASE_TOPIC_HP = 30;
 export const SHIELD_HP = 15;
 
-export const GRUNT = { hp: 3, radius: 24, speed: 210, strikes: 3, strikeGapMs: 1000, dmg: 5 } as const;
+export const GRUNT = { hp: 2, radius: 24, speed: 210, strikes: 3, strikeGapMs: 1000, dmg: 5 } as const;
 export const BOSS = {
   radius: 64,
   speed: 85,
-  visits: 4,
+  visits: 3,
   strikesPerVisit: 3,
   strikeGapMs: 1300,
   dmg: 8,
@@ -36,6 +38,8 @@ export const HIT_MAX_AGE_MS = 2000;
 
 export interface TopicTile {
   topicId: string;
+  /** Which level (lane) this tile is fought in. */
+  level: number;
   /** centre */
   x: number;
   y: number;
@@ -57,6 +61,7 @@ export interface Strike {
 
 export interface AttackerScript {
   id: number;
+  level: number;
   kind: "grunt" | "boss";
   hp: number;
   waypoints: Waypoint[];
@@ -64,7 +69,7 @@ export interface AttackerScript {
 }
 
 /** Deterministic grid of topic tiles across the top of the arena. */
-export function layoutTiles(topicIds: string[]): TopicTile[] {
+export function layoutTiles(topicIds: string[], level = 0): TopicTile[] {
   const n = topicIds.length;
   if (n === 0) return [];
   const top = 40;
@@ -73,8 +78,8 @@ export function layoutTiles(topicIds: string[]): TopicTile[] {
   const gap = 14;
   const cols = Math.min(n, Math.max(1, Math.ceil(Math.sqrt(n * 2.6))));
   const rows = Math.ceil(n / cols);
-  const w = Math.min(300, (ARENA_W - side * 2 - gap * (cols - 1)) / cols);
-  const h = Math.min(130, (bottom - top - gap * (rows - 1)) / rows);
+  const w = Math.min(340, (ARENA_W - side * 2 - gap * (cols - 1)) / cols);
+  const h = Math.min(150, (bottom - top - gap * (rows - 1)) / rows);
   const gridW = cols * w + (cols - 1) * gap;
   const left = (ARENA_W - gridW) / 2;
   return topicIds.map((topicId, i) => {
@@ -85,6 +90,7 @@ export function layoutTiles(topicIds: string[]): TopicTile[] {
     const rowLeft = left + ((cols - inRow) * (w + gap)) / 2;
     return {
       topicId,
+      level,
       x: rowLeft + col * (w + gap) + w / 2,
       y: top + row * (h + gap) + h / 2,
       w,
@@ -139,6 +145,9 @@ export interface ScriptParams {
   startsAt: number;
   endsAt: number;
   rand: () => number;
+  level?: number;
+  /** First attacker id to use, so ids stay unique across levels. */
+  firstId?: number;
 }
 
 function travel(from: { x: number; y: number }, to: { x: number; y: number }, speed: number): number {
@@ -146,15 +155,16 @@ function travel(from: { x: number; y: number }, to: { x: number; y: number }, sp
 }
 
 export function gruntsPerTopic(players: number): number {
-  return 3 + Math.max(1, players);
+  return 2 + Math.max(1, players);
 }
 
+/** Bosses per level. */
 export function bossCount(players: number): number {
-  return Math.min(3, 1 + Math.floor(players / 4));
+  return players >= 6 ? 2 : 1;
 }
 
 export function bossHp(players: number): number {
-  return 20 + 18 * Math.max(1, players);
+  return 15 + 15 * Math.max(1, players);
 }
 
 export function generateScript(p: ScriptParams): AttackerScript[] {
@@ -166,7 +176,8 @@ export function generateScript(p: ScriptParams): AttackerScript[] {
   const firstSpawn = p.startsAt + 1000;
   // Leave time for the last grunts to arrive and strike before the end.
   const lastSpawn = Math.max(firstSpawn + 1000, p.endsAt - 9000);
-  let nextId = 0;
+  let nextId = p.firstId ?? 0;
+  const level = p.level ?? 0;
 
   const spawns: { tile: TopicTile; at: number }[] = [];
   for (const tile of tiles) {
@@ -197,6 +208,7 @@ export function generateScript(p: ScriptParams): AttackerScript[] {
     out.push({
       id: nextId++,
       kind: "grunt",
+      level,
       hp: GRUNT.hp,
       waypoints: [
         { ...start, at },
@@ -218,7 +230,7 @@ export function generateScript(p: ScriptParams): AttackerScript[] {
     const visits: TopicTile[] = [];
     const favourite = byShields[b % byShields.length] as TopicTile;
     visits.push(favourite);
-    for (let v = 1; v < BOSS.visits; v++) {
+    for (let v = 1; v < Math.min(BOSS.visits, tiles.length + 1); v++) {
       visits.push(tiles[Math.floor(rand() * tiles.length)] as TopicTile);
     }
     let pos = { x: rand() < 0.5 ? -80 : ARENA_W + 80, y: 80 + rand() * 120 };
@@ -238,10 +250,74 @@ export function generateScript(p: ScriptParams): AttackerScript[] {
     }
     const exit = { x: pos.x < ARENA_W / 2 ? -120 : ARENA_W + 120, y: 60 };
     waypoints.push({ ...exit, at: t + travel(pos, exit, BOSS.speed * 2) });
-    out.push({ id: nextId++, kind: "boss", hp: bossHp(players), waypoints, strikes });
+    out.push({
+      id: nextId++,
+      kind: "boss",
+      level,
+      hp: bossHp(players),
+      waypoints,
+      // A boss still loitering when its level ends stops doing damage.
+      strikes: strikes.filter((st) => st.at < p.endsAt),
+    });
   }
 
   return out;
+}
+
+export interface BattleLevel {
+  laneId: string;
+  title: string;
+  startsAt: number;
+  endsAt: number;
+}
+
+export interface BattlePlanParams {
+  /** One entry per lane that has topics, in board order. */
+  lanes: { laneId: string; title: string; topicIds: string[] }[];
+  shields: Record<string, number>;
+  players: number;
+  startsAt: number;
+  levelMs: number;
+  rand: () => number;
+}
+
+/** Each lane is a level: its topics fill the arena, then the next lane's take over. */
+export function planBattle(p: BattlePlanParams): {
+  levels: BattleLevel[];
+  tiles: TopicTile[];
+  script: AttackerScript[];
+} {
+  const levels: BattleLevel[] = [];
+  const tiles: TopicTile[] = [];
+  const script: AttackerScript[] = [];
+  let at = p.startsAt;
+  p.lanes.forEach((lane, level) => {
+    const levelTiles = layoutTiles(lane.topicIds, level);
+    const startsAt = at;
+    const endsAt = startsAt + p.levelMs;
+    levels.push({ laneId: lane.laneId, title: lane.title, startsAt, endsAt });
+    tiles.push(...levelTiles);
+    script.push(
+      ...generateScript({
+        tiles: levelTiles,
+        shields: p.shields,
+        players: p.players,
+        startsAt,
+        endsAt,
+        rand: p.rand,
+        level,
+        firstId: script.length,
+      })
+    );
+    at = endsAt + LEVEL_GAP_MS;
+  });
+  return { levels, tiles, script };
+}
+
+/** The level being fought at time t, or the next one during a break. */
+export function currentLevel(levels: BattleLevel[], t: number): number {
+  const i = levels.findIndex((l) => t <= l.endsAt);
+  return i === -1 ? levels.length - 1 : i;
 }
 
 /** Server-side check that a hit claim is plausible. */
