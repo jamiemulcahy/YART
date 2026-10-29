@@ -103,7 +103,7 @@ Owner option, set in Setup and changeable during Write: **Visible** or **Hidden 
 - Cards carry no author indicator at all (a colour would map back to a name via the people list) — not even for the owner. Your own cards are marked "yours". The server keeps authorship to permit edits.
 - Owner option **Allow late cards** (default off): permits adding cards during Group.
 - Author can edit or delete their own card in Write. In Group onwards, card text is frozen (edits would change what people voted for).
-- Owner can delete any card (moderation) in any phase.
+- Owner can remove any readable card (moderation) up to the end of Defend; after that, removing one would silently change the votes being discussed.
 - Plain text only; rendered as text, never HTML. Line breaks preserved.
 
 ### Grouping
