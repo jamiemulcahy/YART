@@ -62,7 +62,7 @@ export function WrapupPhase() {
             {ranked.map((t) => (
               <li key={t.id}>
                 <span>{t.title}</span>
-                <span className="muted"> · 🛡 {room.shields.totals?.[t.id] ?? 0}</span>
+                <span className="muted"> · {room.shields.totals?.[t.id] ?? 0} votes</span>
               </li>
             ))}
           </ol>

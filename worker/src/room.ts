@@ -4,6 +4,7 @@ import {
   COUNTDOWN_MS,
   DEFAULT_SETTINGS,
   DPS_BUDGET,
+  directorScale,
   LANE_SWAP_MS,
   SHIPS,
   SHIP_MAX_Y,
@@ -96,11 +97,15 @@ interface BattleRun {
   fx: BattleFx[];
   /** Attackers hit since the last tick, and by whom. */
   hitBy: Record<number, string>;
+  /** Everyone's damage over the last few seconds, for the director. */
+  teamDealt: { at: number; dmg: number }[];
   interval: ReturnType<typeof setInterval>;
 }
 
 const BATTLE_TICK_MS = 100;
 const SHIP_TIMEOUT_MS = 3000;
+const DIRECTOR_WINDOW_MS = 10_000;
+const DIRECTOR_WARMUP_MS = 5000;
 const ACTIVITY_PERSIST_MS = 10 * 60_000;
 const ACTIVE_WINDOW_MS = 4000;
 /** Stored identities per room, online or not. Idle ones are pruned when this fills. */
@@ -121,6 +126,8 @@ export class RoomDO extends DurableObject<Env> {
     super(ctx, env);
     this.store = new Store(ctx.storage.sql);
     this.data = this.store.load();
+    // Rooms created before the phases were reordered stored the voting phase as "defend".
+    if (this.data && (this.data.meta.phase as string) === "defend") this.data.meta.phase = "vote";
   }
 
   // ---------------------------------------------------------------- HTTP
@@ -725,7 +732,7 @@ export class RoomDO extends DurableObject<Env> {
       case "shield.add":
       case "shield.remove": {
         contributor();
-        phase("defend");
+        phase("vote");
         if (!this.topicExists(msg.topicId)) throw new Reject("NOT_FOUND", "That topic no longer exists");
         const mine = { ...(data.shields.get(me.id) ?? {}) };
         const used = Object.values(mine).reduce((a, b) => a + b, 0);
@@ -920,14 +927,15 @@ export class RoomDO extends DurableObject<Env> {
     if (from === next) return;
     const a = PHASES.indexOf(from);
     const b = PHASES.indexOf(next);
-    const skipBattle = (from === "defend" && next === "discuss") || (from === "discuss" && next === "defend");
+    // The battle is optional: Discuss can go straight to Wrap-up and back.
+    const skipBattle = (from === "discuss" && next === "wrapup") || (from === "wrapup" && next === "discuss");
     if (Math.abs(a - b) !== 1 && !skipBattle) throw new Reject("WRONG_PHASE", "Move one phase at a time");
     if (next === "write" && meta.lanes.length === 0)
       throw new Reject("FORBIDDEN", "Add at least one lane first");
 
     if (from === "battle") this.endBattle(false);
     // Results only make sense for the shields they were fought with.
-    if (next === "battle" || next === "defend") meta.battle = null;
+    if (next === "battle" || next === "vote") meta.battle = null;
     if (from === "write" && b > a) meta.revealed = true;
     this.holds.clear();
     meta.phase = next;
@@ -1145,6 +1153,7 @@ export class RoomDO extends DurableObject<Env> {
       players,
       fx: [],
       hitBy: {},
+      teamDealt: [],
       interval: setInterval(() => this.battleTick(), BATTLE_TICK_MS),
     };
     // Sockets get a roomier rate limit for the battle.
@@ -1193,6 +1202,7 @@ export class RoomDO extends DurableObject<Env> {
         if (!attacker || run.dead.has(attacker.id)) continue;
         if (!plausibleHit(attacker, hit.at, w, pilot.samples, now)) continue;
         pilot.dealt.push({ at: now, dmg, w });
+        run.teamDealt.push({ at: now, dmg });
         if (w === "sw") pilot.swarmLeft -= 1;
         if (w === spec.primary) pilot.charge = Math.min(SPECIAL_COST, pilot.charge + dmg);
         const hp = (run.live.attackerHp[attacker.id] ?? attacker.hp) - dmg;
@@ -1240,7 +1250,15 @@ export class RoomDO extends DurableObject<Env> {
     const now = Date.now();
     // The script is sized for everyone online; scale damage down when people sit it out.
     const active = [...run.activeAt.values()].filter((t) => t > now - ACTIVE_WINDOW_MS).length;
-    const dmgScale = Math.min(1, Math.max(MIN_DAMAGE_SCALE, Math.max(1, active) / run.players));
+    const idleScale = Math.min(1, Math.max(MIN_DAMAGE_SCALE, Math.max(1, active) / run.players));
+    // The director: sharper teams feel more bite from what gets through (see directorScale).
+    run.teamDealt = run.teamDealt.filter((d) => d.at > now - DIRECTOR_WINDOW_MS);
+    const elapsed = now - run.live.startsAt;
+    const teamDps =
+      run.teamDealt.reduce((n, d) => n + d.dmg, 0) /
+      (Math.min(DIRECTOR_WINDOW_MS, Math.max(1, elapsed)) / 1000);
+    const dmgScale =
+      idleScale * (elapsed < DIRECTOR_WARMUP_MS ? 1 : directorScale(teamDps, Math.max(1, active)));
     while (run.nextStrike < run.strikes.length) {
       const s = run.strikes[run.nextStrike] as Strike & { attacker: number };
       if (s.at > now) break;
@@ -1341,7 +1359,7 @@ export class RoomDO extends DurableObject<Env> {
     const visible =
       att.role === "owner" ||
       meta.settings.showShieldTotals ||
-      !["setup", "write", "group", "defend"].includes(meta.phase);
+      !["setup", "write", "group", "vote"].includes(meta.phase);
     return { mine: { ...(data.shields.get(att.pid) ?? {}) }, totals: visible ? this.shieldTotals() : null };
   }
 

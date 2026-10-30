@@ -32,7 +32,7 @@ export function DiscussPhase() {
           : "The facilitator opens each topic for everyone. Add notes and actions as you talk."}
       </PhaseIntro>
       <div className="discuss-layout">
-        <nav className="topic-rank" aria-label="Topics by shields">
+        <nav className="topic-rank" aria-label="Topics by votes">
           <ol>
             {ranked.map((t, i) => {
               const shields = room.shields.totals?.[t.id] ?? 0;
@@ -44,7 +44,7 @@ export function DiscussPhase() {
                   <span className="rank">{i + 1}</span>
                   <span className="rank-title">{t.title}</span>
                   <span className="rank-meta">
-                    🛡 {shields}
+                    {shields} {shields === 1 ? "vote" : "votes"}
                     {fate === "fell" && <span title="Fell in battle"> 💥</span>}
                     {fate === "survived" && <span title="Survived the battle"> ⭐</span>}
                     {notes > 0 && <span title={`${notes} notes`}> 📝{notes}</span>}
@@ -108,7 +108,9 @@ function OpenTopic(props: { topic: Topic; rank: number }) {
       <header className="open-topic-head">
         <span className="rank big">#{props.rank}</span>
         <h3>{topic.title}</h3>
-        <span className="shield-total">🛡 {shields}</span>
+        <span className="shield-total">
+          {shields} {shields === 1 ? "vote" : "votes"}
+        </span>
         {isOwner && (
           <button
             className={`btn small ${discussed ? "" : "ghost"}`}

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { addCard, createRoom, expectPhase, joinRoom, nextPhase, toggle } from "./helpers";
 
-test("a whole retro: write, reveal, group, defend, discuss, export", async ({ page: owner, browser }) => {
+test("a whole retro: write, reveal, group, vote, discuss, export", async ({ page: owner, browser }) => {
   const code = await createRoom(owner, { name: "Sprint 42" });
   const alice = await joinRoom(browser, code);
   const bob = await joinRoom(browser, code);
@@ -43,26 +43,25 @@ test("a whole retro: write, reveal, group, defend, discuss, export", async ({ pa
   await alice.getByRole("textbox", { name: "Group name" }).press("Enter");
   await expect(owner.getByRole("group", { name: "Group: Slow delivery" })).toBeVisible();
 
-  // Defend: shields are votes.
-  await nextPhase(owner, "Defend");
-  await expect(alice.getByText("5 of 5 shields left")).toBeVisible();
-  await alice.getByRole("button", { name: "Add a shield to Slow delivery" }).click();
-  await alice.getByRole("button", { name: "Add a shield to Slow delivery" }).click();
-  await expect(alice.getByText("3 of 5 shields left")).toBeVisible();
-  await bob.getByRole("button", { name: "Add a shield to Slow delivery" }).click();
-  await bob.getByRole("button", { name: "Add a shield to Missed the sprint goal" }).click();
+  // Vote.
+  await nextPhase(owner, "Vote");
+  await expect(alice.getByText("5 of 5 votes left")).toBeVisible();
+  await alice.getByRole("button", { name: "Add a vote to Slow delivery" }).click();
+  await alice.getByRole("button", { name: "Add a vote to Slow delivery" }).click();
+  await expect(alice.getByText("3 of 5 votes left")).toBeVisible();
+  await bob.getByRole("button", { name: "Add a vote to Slow delivery" }).click();
+  await bob.getByRole("button", { name: "Add a vote to Missed the sprint goal" }).click();
 
   // Totals hidden from participants by default; the owner sees them.
   await expect(alice.getByText("Totals hidden").first()).toBeVisible();
   await expect(
-    owner.getByRole("article", { name: /Slow delivery\. 0 of your shields, 3 total/ })
+    owner.getByRole("article", { name: /Slow delivery\. 0 of your votes, 3 total/ })
   ).toBeVisible();
 
-  // Skip the battle straight to discussion.
-  await owner.getByRole("button", { name: "Skip battle → Discuss" }).click();
+  await nextPhase(owner, "Discuss");
   await expectPhase(alice, "Discuss");
 
-  // Ranked by shields: Slow delivery (3) first.
+  // Ranked by votes: Slow delivery (3) first.
   await expect(alice.locator(".topic-rank li").first()).toContainText("Slow delivery");
   await owner.getByRole("button", { name: "Open top topic →" }).click();
   await expect(alice.getByRole("article", { name: "Open topic: Slow delivery" })).toBeVisible();
@@ -81,11 +80,12 @@ test("a whole retro: write, reveal, group, defend, discuss, export", async ({ pa
   await owner.getByRole("button", { name: "Next topic →" }).click();
   await expect(alice.getByRole("article", { name: "Open topic: Missed the sprint goal" })).toBeVisible();
 
-  // Wrap-up export contains everything.
-  await nextPhase(owner, "Wrap-up");
+  // Skip the battle; the wrap-up export contains everything.
+  await owner.getByRole("button", { name: "Skip battle → Wrap-up" }).click();
+  await expectPhase(alice, "Wrap-up");
   const md = alice.getByLabel("Markdown export");
   await expect(md).toContainText("# Sprint 42");
-  await expect(md).toContainText("### 1. Slow delivery — 🛡 3");
+  await expect(md).toContainText("### 1. Slow delivery — 3 votes");
   await expect(md).toContainText("_Group of 2 · Mad_");
   await expect(md).toContainText("- Most time is in the e2e stage");
   await expect(md).toContainText("- [ ] Shard the e2e suite — Sam");

@@ -45,8 +45,8 @@ export function Landing() {
         </h1>
         <p className="tagline">Retros your team actually shows up for.</p>
         <p className="sub">
-          Write, group, defend the topics that matter — then hold the line against an alien invasion.
-          Anonymous, real-time, no sign-up.
+          Write, group, vote and discuss — then defend your topics against an alien invasion. Anonymous,
+          real-time, no sign-up.
         </p>
       </header>
 
@@ -111,13 +111,13 @@ export function Landing() {
               <strong>Group</strong> the similar ones together
             </li>
             <li>
-              <strong>Defend</strong> what matters with your shields
-            </li>
-            <li>
-              <strong>Battle</strong> the invaders (just for fun)
+              <strong>Vote</strong> for what matters most
             </li>
             <li>
               <strong>Discuss</strong> the top topics and agree actions
+            </li>
+            <li>
+              <strong>Battle</strong> the invaders to protect your topics (just for fun)
             </li>
           </ol>
         </form>

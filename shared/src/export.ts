@@ -18,7 +18,7 @@ export function exportMarkdown(room: RoomSnapshot): string {
   const participants = room.participants.filter((p) => p.role !== "viewer").length;
   const date = new Date(room.createdAt).toISOString().slice(0, 10);
   const lines: string[] = [`# ${room.name} — ${date}`, ""];
-  lines.push(`Participants: ${participants} · Shields per person: ${room.settings.shieldsPerPerson}`, "");
+  lines.push(`Participants: ${participants} · Votes per person: ${room.settings.shieldsPerPerson}`, "");
 
   const shielded = topics.filter((t) => (totals[t.id] ?? 0) > 0);
   const unshielded = topics.filter((t) => (totals[t.id] ?? 0) === 0);
@@ -28,7 +28,9 @@ export function exportMarkdown(room: RoomSnapshot): string {
     const fate = room.battle?.fates[topic.id];
     const fateText = fate ? ` (${fate})` : "";
     const prefix = index === null ? "" : `${index}. `;
-    lines.push(`### ${prefix}${topic.title.split("\n")[0]} — 🛡 ${shields}${fateText}`);
+    lines.push(
+      `### ${prefix}${topic.title.split("\n")[0]} — ${shields} ${shields === 1 ? "vote" : "votes"}${fateText}`
+    );
     const kind = topic.kind === "group" ? `Group of ${topic.cards.length} · ` : "";
     lines.push(`_${kind}${laneNames(topic, laneTitle)}_`);
     for (const card of topic.cards) {
@@ -48,11 +50,11 @@ export function exportMarkdown(room: RoomSnapshot): string {
   };
 
   if (shielded.length > 0) {
-    lines.push("## Topics (by shields)", "");
+    lines.push("## Topics (by votes)", "");
     shielded.forEach((t, i) => writeTopic(t, i + 1));
   }
   if (unshielded.length > 0) {
-    lines.push("## Other topics (no shields)", "");
+    lines.push("## Other topics (no votes)", "");
     unshielded.forEach((t) => writeTopic(t, null));
   }
 

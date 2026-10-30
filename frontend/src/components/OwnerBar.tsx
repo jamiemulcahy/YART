@@ -7,7 +7,7 @@ export function OwnerBar() {
   const { room, send, battle } = useRoom();
   const [showSettings, setShowSettings] = useState(false);
   const index = PHASES.indexOf(room.phase);
-  const prev: Phase | undefined = room.phase === "discuss" ? "defend" : PHASES[index - 1];
+  const prev: Phase | undefined = PHASES[index - 1];
   const next: Phase | undefined = PHASES[index + 1];
   const setPhase = (phase: Phase) => send({ t: "phase.set", phase });
 
@@ -48,9 +48,9 @@ export function OwnerBar() {
               End battle now
             </button>
           )}
-          {room.phase === "defend" && (
-            <button className="btn ghost" onClick={() => setPhase("discuss")}>
-              Skip battle → Discuss
+          {room.phase === "discuss" && (
+            <button className="btn ghost" onClick={() => setPhase("wrapup")}>
+              Skip battle → Wrap-up
             </button>
           )}
 
@@ -109,7 +109,7 @@ function SettingsPanel() {
           checked={s.showShieldTotals}
           onChange={(e) => update({ showShieldTotals: e.target.checked })}
         />
-        <span>Show shield totals while defending</span>
+        <span>Show vote totals while voting</span>
       </label>
       <label className="toggle">
         <input
@@ -120,7 +120,7 @@ function SettingsPanel() {
         <span>Show battle leaderboard</span>
       </label>
       <label className="inline-field">
-        <span>Shields per person</span>
+        <span>Votes per person</span>
         <input
           type="number"
           min={LIMITS.shieldsPerPersonMin}
@@ -134,7 +134,7 @@ function SettingsPanel() {
         />
       </label>
       <label className="inline-field">
-        <span>Max shields on one topic</span>
+        <span>Max votes on one topic</span>
         <input
           type="number"
           min={1}

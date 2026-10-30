@@ -15,7 +15,7 @@ import { ShipPicker } from "./ShipPicker";
 import { SetupPhase } from "../phases/SetupPhase";
 import { WritePhase } from "../phases/WritePhase";
 import { GroupPhase } from "../phases/GroupPhase";
-import { DefendPhase } from "../phases/DefendPhase";
+import { VotePhase } from "../phases/VotePhase";
 import { BattlePhase } from "../phases/BattlePhase";
 import { DiscussPhase } from "../phases/DiscussPhase";
 import { WrapupPhase } from "../phases/WrapupPhase";
@@ -24,7 +24,7 @@ const PHASE_VIEWS: Record<Phase, () => React.JSX.Element> = {
   setup: SetupPhase,
   write: WritePhase,
   group: GroupPhase,
-  defend: DefendPhase,
+  vote: VotePhase,
   battle: BattlePhase,
   discuss: DiscussPhase,
   wrapup: WrapupPhase,

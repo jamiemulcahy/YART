@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attackerPos, planBattle, seededRandom, topicMaxHp } from "./battle";
+import { attackerPos, directorScale, planBattle, seededRandom, topicMaxHp } from "./battle";
 
 /**
  * A greedy simulated team (always shoots whatever will strike soonest) dealing `dps` damage per
@@ -51,7 +51,9 @@ function simulate(players: number, dps: number, seed: number) {
     }
     while (si < strikes.length && strikes[si]!.at <= t) {
       const s = strikes[si++]!;
-      if ((hp.get(s.a) ?? 0) > 0 && (topicHp[s.topicId] ?? 0) > 0) topicHp[s.topicId]! -= s.dmg;
+      if ((hp.get(s.a) ?? 0) > 0 && (topicHp[s.topicId] ?? 0) > 0) {
+        topicHp[s.topicId]! -= s.dmg * directorScale(players * dps, players);
+      }
     }
   }
   // Per lane: S/s = shielded/unshielded survived, X/x = fell.
@@ -70,6 +72,10 @@ describe("battle balance", () => {
     for (const [players, dps] of [
       [1, 3],
       [1, 5],
+      [2, 5],
+      [2, 7],
+      [2, 9],
+      [4, 7],
       [3, 4],
       [6, 4],
       [10, 4],

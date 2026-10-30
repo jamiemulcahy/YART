@@ -114,6 +114,8 @@ export function BattleCanvas(props: Props) {
     let lastLevel = -1;
     let shake = 0;
     let musicOn = false;
+    let wasReady = false;
+    let readyBannerUntil = 0;
     const stats = { sentHits: 0, specials: 0 };
     const stars = Array.from({ length: 160 }, () => ({
       x: Math.random() * ARENA_W,
@@ -852,6 +854,56 @@ export function BattleCanvas(props: Props) {
         return true;
       });
       ctx.globalAlpha = 1;
+
+      // Special meter: always on screen so you know how close you are and how to use it.
+      if (p.canPlay && live) {
+        const charge = Math.min(SPECIAL_COST, myState?.c ?? 0) / SPECIAL_COST;
+        const ready = charge >= 1 && !mySpecialOn;
+        if (ready && !wasReady) {
+          readyBannerUntil = t + 2500;
+          sounds.ready();
+        }
+        wasReady = ready;
+        const w = 420;
+        const h = 92;
+        const x0 = ARENA_W - w - 20;
+        const y0 = SAFE_ZONE_Y - h - 14;
+        ctx.fillStyle = "rgba(10,14,34,0.85)";
+        roundRect(ctx, x0, y0, w, h, 12);
+        ctx.fill();
+        ctx.strokeStyle = ready ? mySpec.colour : "rgba(255,255,255,0.18)";
+        ctx.lineWidth = ready ? 3 : 1.5;
+        ctx.stroke();
+        ctx.textAlign = "left";
+        ctx.font = `700 20px "Space Grotesk", system-ui, sans-serif`;
+        ctx.fillStyle = mySpec.colour;
+        ctx.fillText(`${mySpec.special.toUpperCase()}`, x0 + 14, y0 + 10);
+        ctx.fillStyle = "rgba(255,255,255,0.12)";
+        ctx.fillRect(x0 + 14, y0 + 40, w - 28, 16);
+        ctx.fillStyle = mySpecialOn ? "#ffffff" : mySpec.colour;
+        ctx.fillRect(x0 + 14, y0 + 40, (w - 28) * (mySpecialOn ? 1 : charge), 16);
+        ctx.font = `600 16px Inter, system-ui, sans-serif`;
+        ctx.fillStyle = "#e8ecff";
+        if (mySpecialOn) ctx.fillText("ACTIVE!", x0 + 14, y0 + 64);
+        else if (ready) {
+          ctx.globalAlpha = 0.6 + Math.sin(t / 120) * 0.4;
+          ctx.fillText("READY — press E, Shift or right-click", x0 + 14, y0 + 64);
+          ctx.globalAlpha = 1;
+        } else
+          ctx.fillText(`Charging ${Math.floor(charge * 100)}% — hit enemies to charge`, x0 + 14, y0 + 64);
+        if (t < readyBannerUntil) {
+          ctx.textAlign = "center";
+          ctx.globalAlpha = Math.min(1, (readyBannerUntil - t) / 600);
+          ctx.font = `700 44px "Space Grotesk", system-ui, sans-serif`;
+          ctx.fillStyle = mySpec.colour;
+          ctx.fillText(`⚡ ${mySpec.special.toUpperCase()} READY`, ARENA_W / 2, 440);
+          ctx.font = `600 22px Inter, system-ui, sans-serif`;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("Press E, Shift or right-click to unleash it", ARENA_W / 2, 494);
+          ctx.globalAlpha = 1;
+          ctx.textAlign = "left";
+        }
+      }
 
       // Countdown.
       if (!started) {
