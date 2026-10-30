@@ -1,23 +1,26 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { writeFileSync, readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 
-// Plugin to copy index.html to 404.html for GitHub Pages SPA routing
+// GitHub Pages serves 404.html for unknown paths, which gives us SPA routing.
 const copy404Plugin = () => ({
   name: "copy-404",
   closeBundle() {
-    const distPath = resolve(__dirname, "dist");
-    const indexContent = readFileSync(resolve(distPath, "index.html"), "utf-8");
-    writeFileSync(resolve(distPath, "404.html"), indexContent);
+    const dist = resolve(__dirname, "dist");
+    writeFileSync(resolve(dist, "404.html"), readFileSync(resolve(dist, "index.html"), "utf-8"));
   },
 });
 
-// https://vite.dev/config/
+const workerUrl = process.env.WORKER_URL ?? "http://localhost:8787";
+
 export default defineConfig({
   plugins: [react(), copy404Plugin()],
   server: {
     host: "0.0.0.0", // Required for container environments
-    port: 5173,
+    port: Number(process.env.PORT ?? 5173),
+    proxy: {
+      "/api": { target: workerUrl, ws: true, changeOrigin: true },
+    },
   },
 });

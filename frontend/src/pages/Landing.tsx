@@ -1,178 +1,132 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { createRoom, checkRoom } from "../services/api";
-import { useUser } from "../contexts";
-
-const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || "githy/yart";
-const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
-
-function GitHubIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-    </svg>
-  );
-}
-
-type Tab = "join" | "create";
+import { LANE_TEMPLATES, LIMITS } from "@yart/shared";
+import { createRoom, normaliseCode } from "../lib/api";
+import { storage } from "../lib/storage";
+import { YourRooms } from "../components/YourRooms";
 
 export function Landing() {
   const navigate = useNavigate();
-  const { setOwnerKey } = useUser();
+  const [name, setName] = useState("");
+  const [templateId, setTemplateId] = useState(LANE_TEMPLATES[0]?.id ?? "blank");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [code, setCode] = useState("");
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<Tab>("join");
-
-  // Create room state
-  const [roomName, setRoomName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  // Join room state
-  const [joinRoomId, setJoinRoomId] = useState("");
-  const [isJoining, setIsJoining] = useState(false);
-  const [joinError, setJoinError] = useState<string | null>(null);
-
-  const handleCreateRoom = async (e: FormEvent) => {
+  const onCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (!roomName.trim()) {
-      setCreateError("Room name is required");
-      return;
-    }
-
-    setIsCreating(true);
-    setCreateError(null);
-
+    setCreating(true);
+    setError(null);
     try {
-      const result = await createRoom(roomName.trim());
-      // Store the owner key silently (no modal shown to user)
-      setOwnerKey(result.ownerKey, result.roomId);
-      // Navigate directly to the room
-      navigate(`/room/${result.roomId}`);
-    } catch {
-      setCreateError("Failed to create room. Please try again.");
-    } finally {
-      setIsCreating(false);
+      const template = LANE_TEMPLATES.find((t) => t.id === templateId);
+      const room = await createRoom(name.trim() || "Team retro", template?.lanes ?? []);
+      storage.setOwnerKey(room.code, room.ownerKey);
+      navigate(`/r/${room.code}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't create the room");
+      setCreating(false);
     }
   };
 
-  const handleJoinRoom = async (e: FormEvent) => {
+  const onJoin = (e: FormEvent) => {
     e.preventDefault();
-    if (!joinRoomId.trim()) {
-      setJoinError("Room ID is required");
-      return;
-    }
-
-    setIsJoining(true);
-    setJoinError(null);
-
-    try {
-      const result = await checkRoom(joinRoomId.trim());
-      if (result.exists) {
-        navigate(`/room/${joinRoomId.trim()}`);
-      } else {
-        setJoinError("Room not found. Please check the ID and try again.");
-      }
-    } catch {
-      setJoinError("Failed to check room. Please try again.");
-    } finally {
-      setIsJoining(false);
-    }
+    const normalised = normaliseCode(code);
+    if (normalised.length === 6) navigate(`/r/${normalised}`);
+    else setError("Room codes are 6 characters, like K7M-QX2");
   };
 
   return (
-    <div className="landing-page">
-      <h1>YART</h1>
-      <p className="tagline">Yet Another Retro Tool</p>
-      <p className="description">
-        Real-time retrospective facilitation for teams.
-      </p>
+    <div className="landing">
+      <div className="stars" aria-hidden="true" />
+      <header className="landing-hero">
+        <h1 className="logo">
+          YART<span className="logo-dot">.</span>
+        </h1>
+        <p className="tagline">Retros your team actually shows up for.</p>
+        <p className="sub">
+          Write, group, defend the topics that matter — then hold the line against an alien invasion.
+          Anonymous, real-time, no sign-up.
+        </p>
+      </header>
 
-      <a
-        href={GITHUB_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="github-link-landing"
-        aria-label="View source on GitHub"
-      >
-        <GitHubIcon />
-        <span>View on GitHub</span>
-      </a>
-
-      <div className="landing-card">
-        <div className="landing-tabs">
-          <button
-            className={`landing-tab ${activeTab === "join" ? "active" : ""}`}
-            onClick={() => setActiveTab("join")}
-            type="button"
-          >
-            Join Room
-          </button>
-          <button
-            className={`landing-tab ${activeTab === "create" ? "active" : ""}`}
-            onClick={() => setActiveTab("create")}
-            type="button"
-          >
-            Create Room
-          </button>
-        </div>
-
-        <div className="landing-tab-content">
-          {activeTab === "join" && (
-            <form onSubmit={handleJoinRoom}>
-              <div className="form-group">
-                <label htmlFor="join-room-id">Room ID</label>
+      <YourRooms />
+      <main className="landing-panels">
+        <form className="panel" onSubmit={onCreate} aria-labelledby="create-heading">
+          <h2 id="create-heading">Start a retro</h2>
+          <label className="field">
+            <span>Retro name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Sprint 42 retro"
+              maxLength={LIMITS.roomName}
+            />
+          </label>
+          <fieldset className="templates">
+            <legend>Lanes</legend>
+            {LANE_TEMPLATES.map((t) => (
+              <label key={t.id} className={`template ${templateId === t.id ? "selected" : ""}`}>
                 <input
-                  id="join-room-id"
-                  type="text"
-                  value={joinRoomId}
-                  onChange={(e) => setJoinRoomId(e.target.value)}
-                  placeholder="Enter room ID"
-                  disabled={isJoining}
+                  type="radio"
+                  name="template"
+                  value={t.id}
+                  checked={templateId === t.id}
+                  onChange={() => setTemplateId(t.id)}
                 />
-              </div>
-              {joinError && <p className="error-message">{joinError}</p>}
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={isJoining || !joinRoomId.trim()}
-              >
-                {isJoining ? "Joining..." : "Join Room"}
-              </button>
-            </form>
-          )}
+                <span className="template-name">{t.name}</span>
+                <span className="template-lanes">
+                  {t.lanes.length ? t.lanes.map((l) => l.title).join(" · ") : "Make your own lanes"}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <button className="btn primary big" type="submit" disabled={creating}>
+            {creating ? "Creating…" : "Create room"}
+          </button>
+        </form>
 
-          {activeTab === "create" && (
-            <form onSubmit={handleCreateRoom}>
-              <div className="form-group">
-                <label htmlFor="room-name">Room Name</label>
-                <input
-                  id="room-name"
-                  type="text"
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  placeholder="e.g., Sprint 42 Retro"
-                  disabled={isCreating}
-                />
-              </div>
-              {createError && <p className="error-message">{createError}</p>}
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={isCreating || !roomName.trim()}
-              >
-                {isCreating ? "Creating..." : "Create Room"}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
+        <form className="panel" onSubmit={onJoin} aria-labelledby="join-heading">
+          <h2 id="join-heading">Join a retro</h2>
+          <label className="field">
+            <span>Room code or invite link</span>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="K7M-QX2"
+              autoCapitalize="characters"
+              autoComplete="off"
+              className="code-input"
+              maxLength={200}
+            />
+          </label>
+          <button className="btn big" type="submit">
+            Join room
+          </button>
+          <ol className="how">
+            <li>
+              <strong>Write</strong> your thoughts into lanes
+            </li>
+            <li>
+              <strong>Group</strong> the similar ones together
+            </li>
+            <li>
+              <strong>Defend</strong> what matters with your shields
+            </li>
+            <li>
+              <strong>Battle</strong> the invaders (just for fun)
+            </li>
+            <li>
+              <strong>Discuss</strong> the top topics and agree actions
+            </li>
+          </ol>
+        </form>
+      </main>
+      {error && (
+        <p className="landing-error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

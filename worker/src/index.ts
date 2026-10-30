@@ -1,121 +1,111 @@
+import { LIMITS, cleanLine } from "@yart/shared";
 import { RoomDO } from "./room";
+import { newRoomCode, newSecret, normaliseRoomCode, sha256 } from "./util";
 
 export { RoomDO };
 
 export interface Env {
-  ROOM: DurableObjectNamespace;
+  ROOM: DurableObjectNamespace<RoomDO>;
+  /** Comma-separated list of origins allowed to call the API. */
+  ALLOWED_ORIGINS?: string;
+  CREATE_LIMITER?: RateLimit;
+  /** Set by the E2E suite, which creates many rooms from one IP. */
+  DISABLE_CREATE_LIMIT?: string;
+}
+
+function corsHeaders(request: Request, env: Env): Record<string, string> {
+  const origin = request.headers.get("Origin");
+  const allowed = (env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (!origin || !allowed.includes(origin)) return {};
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+function json(body: unknown, status: number, headers: Record<string, string>): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...headers },
+  });
+}
+
+async function createRoom(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+  if (env.CREATE_LIMITER && env.DISABLE_CREATE_LIMIT !== "true") {
+    const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+    const { success } = await env.CREATE_LIMITER.limit({ key: ip });
+    if (!success) return json({ error: "Too many rooms created, try again shortly" }, 429, cors);
+  }
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, cors);
+  }
+  const input = body as { name?: unknown; lanes?: unknown };
+  const name = typeof input.name === "string" ? cleanLine(input.name, LIMITS.roomName) : null;
+  if (!name) return json({ error: `Room name must be 1–${LIMITS.roomName} characters` }, 400, cors);
+  const rawLanes = Array.isArray(input.lanes) ? input.lanes.slice(0, LIMITS.lanes) : [];
+  const lanes: { title: string; description: string }[] = [];
+  for (const raw of rawLanes) {
+    const lane = raw as { title?: unknown; description?: unknown };
+    const title = typeof lane.title === "string" ? cleanLine(lane.title, LIMITS.laneTitle) : null;
+    if (!title) continue;
+    const description =
+      typeof lane.description === "string" ? (cleanLine(lane.description, LIMITS.laneDescription) ?? "") : "";
+    lanes.push({ title, description });
+  }
+
+  const ownerKey = newSecret();
+  const ownerKeyHash = await sha256(ownerKey);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = newRoomCode();
+    const stub = env.ROOM.get(env.ROOM.idFromName(code));
+    const res = await stub.fetch("http://room/init", {
+      method: "POST",
+      body: JSON.stringify({ code, name, ownerKeyHash, lanes }),
+    });
+    if (res.ok) return json({ code, ownerKey }, 201, cors);
+  }
+  return json({ error: "Couldn't allocate a room code" }, 503, cors);
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    const path = url.pathname;
+    const cors = corsHeaders(request, env);
 
-    // CORS headers
-    const origin = request.headers.get("Origin") || "*";
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Max-Age": "86400",
-    };
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
-    // Handle CORS preflight
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders,
-      });
+    if (url.pathname === "/health") return json({ status: "ok" }, 200, cors);
+
+    if (url.pathname === "/api/rooms" && request.method === "POST") return createRoom(request, env, cors);
+
+    const match = url.pathname.match(/^\/api\/rooms\/([^/]+)(\/ws)?$/);
+    if (match) {
+      const code = normaliseRoomCode(decodeURIComponent(match[1] as string));
+      if (!code) return json({ exists: false }, 404, cors);
+      const stub = env.ROOM.get(env.ROOM.idFromName(code));
+      if (match[2]) {
+        if (request.headers.get("Upgrade") !== "websocket")
+          return json({ error: "Expected WebSocket" }, 426, cors);
+        return stub.fetch(request);
+      }
+      if (request.method === "GET") {
+        const info = (await (await stub.fetch("http://room/info")).json()) as {
+          exists: boolean;
+          name?: string;
+        };
+        return json({ ...info, code }, info.exists ? 200 : 404, cors);
+      }
     }
 
-    // Health check - quick response, no DO interaction
-    if (path === "/health") {
-      return new Response(JSON.stringify({ status: "ok" }), {
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // API routes
-    if (path.startsWith("/api/rooms")) {
-      return handleRoomRoutes(request, env, path, corsHeaders);
-    }
-
-    return new Response("Not found", { status: 404, headers: corsHeaders });
+    return json({ error: "Not found" }, 404, cors);
   },
-};
-
-async function handleRoomRoutes(
-  request: Request,
-  env: Env,
-  path: string,
-  corsHeaders: Record<string, string>
-): Promise<Response> {
-  // POST /api/rooms - Create a new room
-  if (path === "/api/rooms" && request.method === "POST") {
-    const { name } = (await request.json()) as { name: string };
-
-    if (!name || typeof name !== "string") {
-      return new Response(JSON.stringify({ error: "Room name is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // Generate room ID and owner key
-    const roomId = generateId(8);
-    const ownerKey = generateId(32);
-
-    // Create Durable Object and initialize room
-    const id = env.ROOM.idFromName(roomId);
-    const stub = env.ROOM.get(id);
-
-    await stub.fetch(
-      new Request("http://internal/init", {
-        method: "POST",
-        body: JSON.stringify({ name, ownerKey }),
-      })
-    );
-
-    return new Response(JSON.stringify({ roomId, ownerKey }), {
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
-  }
-
-  // GET /api/rooms/:id/ws - WebSocket upgrade
-  const wsMatch = path.match(/^\/api\/rooms\/([^/]+)\/ws$/);
-  if (wsMatch && request.headers.get("Upgrade") === "websocket") {
-    const roomId = wsMatch[1];
-    const id = env.ROOM.idFromName(roomId);
-    const stub = env.ROOM.get(id);
-    return stub.fetch(request);
-  }
-
-  // GET /api/rooms/:id - Check if room exists
-  const roomMatch = path.match(/^\/api\/rooms\/([^/]+)$/);
-  if (roomMatch && request.method === "GET") {
-    const roomId = roomMatch[1];
-    const id = env.ROOM.idFromName(roomId);
-    const stub = env.ROOM.get(id);
-
-    const response = await stub.fetch(new Request("http://internal/info"));
-    const data = (await response.json()) as { exists: boolean; name?: string };
-
-    return new Response(JSON.stringify(data), {
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
-  }
-
-  return new Response("Not found", { status: 404, headers: corsHeaders });
-}
-
-function generateId(length: number): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  const randomValues = new Uint8Array(length);
-  crypto.getRandomValues(randomValues);
-  for (let i = 0; i < length; i++) {
-    result += chars[randomValues[i] % chars.length];
-  }
-  return result;
-}
+} satisfies ExportedHandler<Env>;

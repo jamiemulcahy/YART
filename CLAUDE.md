@@ -105,56 +105,40 @@ Commit after completing a logical unit:
 
 ## Project Overview
 
-YART (Yet Another Retro Tool) is a real-time retrospective facilitation tool for software teams. It's a React + TypeScript frontend with Cloudflare Workers backend using Durable Objects for persistent state and WebSocket for real-time synchronization.
+YART (Yet Another Retro Tool) is a real-time retrospective facilitation tool for software teams, with an optional space-battle stage. React + TypeScript frontend, Cloudflare Workers backend with one Durable Object per room, WebSocket for real-time sync. The design lives in `spec/REBUILD.md` — read it before changing behaviour.
 
 ## Commands
 
 ```bash
-# Install dependencies
 pnpm install
+pnpm dev              # Worker (localhost:8787) + frontend (localhost:5173); Vite proxies /api to the worker
 
-# Development (run both in separate terminals)
-pnpm dev              # Frontend dev server (Vite) - localhost:5173
-pnpm dev:worker       # Worker dev server (Wrangler) - localhost:8787
-
-# Testing
-pnpm test             # Unit tests (Vitest)
-pnpm test --watch     # Unit tests watch mode
-pnpm test:e2e         # E2E tests (Playwright) - auto-starts both servers
-pnpm test:e2e --ui    # E2E tests with debugging UI
-pnpm test:e2e e2e/room-creation.spec.ts  # Run specific E2E test
+pnpm lint             # ESLint
+pnpm typecheck        # All packages
+pnpm test             # Unit tests (Vitest, shared/)
+pnpm test:e2e         # E2E tests (Playwright) - starts its own servers on :8797 / :5183
+pnpm test:e2e e2e/full-retro.spec.ts  # Run a specific E2E file
 ```
-
-> **Note**: E2E tests automatically start both the frontend and worker servers. For manual development, run both `pnpm dev` and `pnpm dev:worker` in separate terminals.
 
 ## Architecture
 
-**Real-time data flow:**
-
 ```
-Browser → WebSocket → Cloudflare Worker → Durable Objects
+Browser → WebSocket → Cloudflare Worker → RoomDO (Durable Object, SQLite)
 ```
 
-**State Management:**
+- `shared/` — protocol types + zod validation (`protocol.ts`), limits and text cleaning, topic building/ranking, battle maths, markdown export. Used by both worker and frontend.
+- `worker/` — `index.ts` HTTP routes; `room.ts` the `RoomDO`; `store.ts` row-per-entity SQLite persistence.
+- `frontend/` — `room/` connection + state reducer + context; `phases/` one view per phase; `game/` battle canvas.
 
-- React Context API (RoomContext for room state, UserContext for user identity)
-- Real-time sync via WebSocket to Cloudflare Worker
-- Each room managed by dedicated Durable Object instance
+**Server is authoritative.** Every client message is validated (zod), then checked for role, phase, ownership, limits and rate. Card text and authorship are filtered per viewer before sending.
 
 **Backend Endpoints:**
 
-- `POST /api/rooms` - Create new room
-- `GET /api/rooms/:id` - Check if room exists
-- `GET /api/rooms/:id/ws` - WebSocket upgrade
+- `POST /api/rooms` - Create a room (`{ name, lanes }` → `{ code, ownerKey }`)
+- `GET /api/rooms/:code` - Check if a room exists
+- `GET /api/rooms/:code/ws` - WebSocket upgrade (first message must be `hello`)
 
-**Room Modes (retrospective phases):**
-
-1. Edit - Owner configures columns
-2. Publish - Participants add cards
-3. Group - Collaboratively group related cards
-4. Vote - Swipe voting to prioritize
-5. Focus - Discuss prioritized cards
-6. Overview - Review and export summary
+**Phases:** Setup → Write → Group → Defend (shields = votes) → Battle (optional, cosmetic) → Discuss → Wrap-up
 
 ## Code Conventions
 
@@ -173,9 +157,10 @@ Browser → WebSocket → Cloudflare Worker → Durable Objects
 
 **Testing Philosophy:**
 
-- Favour E2E tests (Playwright) for user flow coverage
+- Favour E2E tests (Playwright) for user flow coverage; use separate browser contexts for separate people
+- Protocol-level tests (raw WebSockets in `e2e/protocol.spec.ts`) for authorization, limits and leakage
 - Use accessible selectors: `getByRole`, `getByLabel`, `getByText`
-- Unit tests (Vitest) for complex logic, edge cases, or utilities
+- Unit tests (Vitest) only for intricate logic (battle maths, text cleaning)
 - Each test independent (no shared state)
 
 **Commit Messages (Conventional Commits):**
@@ -188,6 +173,8 @@ docs/style/refactor/test/chore(scope): description
 
 ## Key Concepts
 
-- **Owner Key**: Server-validated authentication for privileged room actions
-- **Draft Cards**: Private cards until explicitly published
-- **Anonymous Identity**: Session-based names (e.g., "Purple Penguin"), no user accounts
+- **Owner Key**: Secret returned on room creation; proves facilitator rights. Never sent in URLs.
+- **Participant token**: Secret issued on first join, stored in localStorage; reconnecting with it restores the same identity.
+- **Hidden cards**: Face-down to everyone but their author until the owner reveals them (or Write ends).
+- **Topic**: A group, or a card that isn't in a group. Topics get shields, get attacked, get discussed.
+- **Anonymous Identity**: Random names (e.g. "Dastardly Pigeon"), no accounts. Card authorship is never shown.

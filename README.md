@@ -1,70 +1,58 @@
-# YART - Yet Another Retro Tool
+# YART — Yet Another Retro Tool
 
-A modern, real-time retrospective facilitation tool for software engineering teams.
+Real-time retrospectives with a space-battle twist. Create a room, share the code, and everyone joins anonymously — no accounts.
 
-## What is YART?
+## How a retro runs
 
-YART helps teams run effective retrospective meetings with a streamlined, collaborative workflow. Create columns for discussion topics (like "Mad, Sad, Glad" or custom themes), add cards anonymously, group related items, vote on what matters most, and focus discussions on the topics your team cares about.
+1. **Setup** — the facilitator picks lanes (Mad/Sad/Glad, Start/Stop/Continue, … or their own) and shares the invite link.
+2. **Write** — everyone adds cards. By default cards are face-down to others until the facilitator reveals them.
+3. **Group** — drag similar cards together (or use a card's ⋯ menu) and name the groups.
+4. **Defend** — each person places shields on the topics they most want to discuss. Shields are the vote.
+5. **Battle** _(optional, just for fun)_ — invaders attack the board; shields become armour. Shoot them down together. The battle never changes the discussion order.
+6. **Discuss** — the facilitator opens topics in shield order for everyone; the team adds notes and actions.
+7. **Wrap-up** — copy or download a markdown summary of topics, groups, shields, notes and actions.
 
-## Key Features
+The facilitator also has an optional shared timer (any length, start/pause/restart at will) that plays an alarm for everyone when it runs out, and a "Join as viewer" mode for a shared meeting-room screen.
 
-- **Real-time collaboration** - All participants see updates instantly via PubSub
-- **Anonymous participation** - Users are assigned anonymous names to encourage honest feedback
-- **Flexible column structure** - Create any discussion topics that suit your team
-- **Draft cards** - Write and refine your thoughts privately before publishing
-- **Card grouping** - Drag and drop to cluster related cards together
-- **Tinder-style voting** - Quick, intuitive swipe voting to prioritise discussions
-- **Focused discussions** - Walk through prioritised cards together as a team
-- **Action tracking** - Capture action items directly on cards during discussion
-- **Export to Markdown** - Generate a summary of your retro for sharing and archiving
+## Architecture
 
-## Quick Start
+```
+Browser ──WebSocket──▶ Cloudflare Worker ──▶ one Durable Object per room (SQLite storage)
+```
 
-### Join an Existing Room
+| Package     | What's in it                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| `shared/`   | Protocol (zod-validated messages), limits, topic ranking, battle maths, markdown export, unit tests |
+| `worker/`   | HTTP routes and the `RoomDO` Durable Object — the single source of truth for each room              |
+| `frontend/` | React + Vite app and the Playwright E2E suite                                                       |
 
-1. Get the Room ID from your facilitator
-2. Enter the Room ID on the landing page
-3. Click "Join Room"
+Key points:
 
-### Create a New Room
+- **The server decides everything.** Clients send requests; the Durable Object validates role, phase, limits and rate, then broadcasts the result. Hidden card text and card authorship never leave the server for anyone but the author.
+- **Identity survives refreshes.** On first join the server issues a secret token kept in `localStorage`; reconnecting with it restores the same anonymous participant.
+- **The battle stays in sync without streaming positions.** The server generates the whole battle as a script up front; attacker positions are a pure function of time, so every client draws the same thing. Only hits, deaths and topic damage travel over the wire, and the server is the authority on all three.
 
-1. Click "Create Room" on the landing page
-2. Enter a name for your retro
-3. Share the Room ID with your team
-4. Keep your Owner Key safe (this authorises facilitator actions)
+See [spec/REBUILD.md](spec/REBUILD.md) for the full design.
 
-## Room Modes
+## Development
 
-YART guides your retro through several phases:
+Requires Node 24 and pnpm (`corepack enable pnpm`).
 
-| Mode | Description |
-|------|-------------|
-| **Edit** | Room owner sets up columns and structure |
-| **Publish** | All members add and publish cards to columns |
-| **Group** | Collaboratively group related cards together |
-| **Vote** | Swipe to vote on which topics to discuss |
-| **Focus** | Discuss prioritised cards one-by-one as a team |
-| **Overview** | Review the complete retro and export summary |
+```bash
+pnpm install
+pnpm dev            # worker on :8787 and frontend on :5173 (Vite proxies /api to the worker)
+```
 
-## Documentation
+```bash
+pnpm lint           # ESLint (strict TypeScript + React hooks rules)
+pnpm typecheck      # all packages
+pnpm test           # unit tests (shared/)
+pnpm test:e2e       # Playwright; starts its own worker (:8797) and frontend (:5183)
+```
 
-- [Specification](docs/SPECIFICATION.md) - Detailed feature specification
-- [Technical Overview](docs/TECHNICAL.md) - Architecture and tech stack
-- [Contributing Guide](docs/CONTRIBUTING.md) - How to contribute to YART
-- [Glossary](docs/GLOSSARY.md) - Key terms and concepts
+E2E tests are the primary safety net: they drive several browser contexts (owner, participants, viewers) through real retros and also hit the WebSocket protocol directly to check authorization, limits and data leakage.
 
-## Tech Stack
+## Deployment
 
-- **Frontend**: React + TypeScript
-- **Hosting**: GitHub Pages
-- **Real-time**: Cloudflare Workers / Durable Objects
-- **CDN/Proxy**: Cloudflare
-- **Testing**: Playwright (E2E)
-
-## Contributing
-
-We welcome contributions! Please read our [Contributing Guide](docs/CONTRIBUTING.md) before submitting PRs.
-
-## License
-
-[MIT](LICENSE)
+- **Worker:** `pnpm deploy` (runs `wrangler deploy` in `worker/`; needs `wrangler login`). Set `ALLOWED_ORIGINS` in `worker/wrangler.toml` to the frontend's origin.
+- **Frontend:** the GitHub Pages workflow builds on push to `main`. Set the repository variable `VITE_API_URL` to the worker's URL. If the frontend and worker share an origin, leave it empty.
