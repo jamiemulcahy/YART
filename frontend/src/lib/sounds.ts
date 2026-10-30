@@ -25,9 +25,22 @@ export function isMuted(): boolean {
   return muted;
 }
 
+const muteListeners = new Set<(muted: boolean) => void>();
+
 export function setMuted(value: boolean): void {
   muted = value;
   storage.setMuted(value);
+  muteListeners.forEach((l) => l(value));
+}
+
+export function onMuteChange(listener: (muted: boolean) => void): () => void {
+  muteListeners.add(listener);
+  return () => muteListeners.delete(listener);
+}
+
+/** The shared audio context, or null while muted or unavailable. */
+export function audioContext(): AudioContext | null {
+  return audio();
 }
 
 function tone(
@@ -54,7 +67,7 @@ function tone(
 }
 
 /** Dev/test builds record which sounds played so E2E tests can assert on them. */
-function record(name: string): void {
+export function record(name: string): void {
   if (!import.meta.env.DEV || muted) return;
   const w = window as unknown as { __yartSounds?: string[] };
   (w.__yartSounds ??= []).push(name);
@@ -85,6 +98,10 @@ export const sounds = {
   },
   countdown() {
     tone(660, 0, 0.12, "sine", 0.12);
+  },
+  special() {
+    tone(220, 0, 0.5, "sawtooth", 0.12, 880);
+    tone(440, 0.05, 0.45, "square", 0.06, 1320);
   },
   go() {
     tone(990, 0, 0.3, "sine", 0.14);

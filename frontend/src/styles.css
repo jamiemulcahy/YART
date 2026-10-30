@@ -508,7 +508,7 @@ textarea {
 .join-panel {
   position: relative;
   z-index: 1;
-  max-width: 440px;
+  max-width: 680px;
   width: 100%;
   text-align: center;
   display: flex;
@@ -1889,4 +1889,86 @@ button.rank-row:hover {
 }
 .postits.drafts > li > .card {
   min-height: 0;
+}
+
+/* ---------- Ship picker */
+.ship-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.ship-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  border: 2px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  min-width: 0;
+}
+.ship-option:hover {
+  border-color: var(--accent);
+}
+.ship-option.selected {
+  background: var(--surface-2);
+  box-shadow: 0 0 24px rgba(125, 211, 252, 0.15);
+}
+.ship-preview {
+  width: 96px;
+  height: 96px;
+}
+.ship-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+}
+.ship-weapon {
+  font-size: 13px;
+  font-weight: 600;
+}
+.ship-blurb,
+.ship-special {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.ship-special strong {
+  color: var(--text);
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(3, 5, 15, 0.75);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.modal {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.modal h2 {
+  font-size: 22px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.join-panel .ship-picker {
+  text-align: left;
+}
+
+.briefing-ship {
+  grid-column: 1 / -1;
 }

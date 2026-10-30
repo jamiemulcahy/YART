@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import type { ClientMessage, ServerMessage } from "@yart/shared";
+import type { ClientMessage, ServerMessage, ShipKind } from "@yart/shared";
 import { socketUrl } from "../lib/api";
 import { storage } from "../lib/storage";
 import { initialState, reducer } from "./state";
@@ -16,8 +16,18 @@ export interface Connection {
   toast: (message: string) => void;
 }
 
-export function useRoomConnection(code: string, enabled: boolean, viewer: boolean): Connection {
+export function useRoomConnection(
+  code: string,
+  enabled: boolean,
+  viewer: boolean,
+  /** Ship picked on the join screen; only sent when joining for the first time. */
+  ship?: ShipKind
+): Connection {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const shipRef = useRef(ship);
+  useEffect(() => {
+    shipRef.current = ship;
+  }, [ship]);
   const wsRef = useRef<WebSocket | null>(null);
   // Offset estimate from the lowest-latency ping we've seen.
   const clock = useRef({ offset: 0, rtt: Infinity });
@@ -44,6 +54,7 @@ export function useRoomConnection(code: string, enabled: boolean, viewer: boolea
           token: storage.token(code) ?? undefined,
           ownerKey: storage.ownerKey(code) ?? undefined,
           viewer,
+          ship: storage.token(code) || viewer ? undefined : shipRef.current,
         };
         ws.send(JSON.stringify(hello));
         clock.current.rtt = Infinity;

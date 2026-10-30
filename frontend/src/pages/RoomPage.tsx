@@ -7,6 +7,8 @@ import { useRoomConnection } from "../room/useRoomConnection";
 import { RoomProvider } from "../room/RoomContext";
 import { RoomShell } from "../components/RoomShell";
 import { Toasts } from "../components/Toasts";
+import { ShipPicker } from "../components/ShipPicker";
+import type { ShipKind } from "@yart/shared";
 
 type Lookup =
   | { state: "loading" }
@@ -33,8 +35,10 @@ export function RoomPage() {
     };
   }, [code]);
 
+  // Only people coming through the join screen pick a ship there; everyone else is asked in the room.
+  const [ship, setShip] = useState<ShipKind | undefined>(hasIdentity ? undefined : "viper");
   const enabled = lookup.state === "found" && joinAs !== null;
-  const conn = useRoomConnection(code, enabled, joinAs === "viewer");
+  const conn = useRoomConnection(code, enabled, joinAs === "viewer", ship);
   const { state } = conn;
 
   // Remember this room so it shows under "Your rooms" on the landing page.
@@ -77,6 +81,8 @@ export function RoomPage() {
           <p className="eyebrow">Room {formatCode(code)}</p>
           <h1>{lookup.name}</h1>
           <p>You'll get a random anonymous name. You can change it once you're in.</p>
+          <p className="muted">Pick a ship for the battle stage (you can change it later):</p>
+          <ShipPicker value={ship} colour="#a5b4fc" onChange={setShip} />
           <div className="join-actions">
             <button
               className="btn primary big"

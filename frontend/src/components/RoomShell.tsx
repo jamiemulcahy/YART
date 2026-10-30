@@ -11,6 +11,7 @@ import { Timer } from "./Timer";
 import { OwnerBar } from "./OwnerBar";
 import { Participants } from "./Participants";
 import { InlineEdit } from "./InlineEdit";
+import { ShipPicker } from "./ShipPicker";
 import { SetupPhase } from "../phases/SetupPhase";
 import { WritePhase } from "../phases/WritePhase";
 import { GroupPhase } from "../phases/GroupPhase";
@@ -142,6 +143,24 @@ export function RoomShell(props: { connection: ConnectionStatus }) {
           <View />
         </main>
         {showPeople && <Participants onClose={() => setShowPeople(false)} />}
+      </div>
+      {!isViewer && !me.ship && <ChooseShip />}
+    </div>
+  );
+}
+
+/** Anyone without a ship (the owner, or people who joined before ships existed) picks one first. */
+function ChooseShip() {
+  const { me, send } = useRoom();
+  return (
+    <div className="modal-backdrop">
+      <div className="panel modal" role="dialog" aria-modal="true" aria-labelledby="choose-ship">
+        <h2 id="choose-ship">Choose your ship</h2>
+        <p className="muted">
+          Used in the optional battle stage. Each ship has its own weapon and a special move that charges as
+          you hit things. You can change it any time before the battle.
+        </p>
+        <ShipPicker value={undefined} colour={me.colour} onChange={(ship) => send({ t: "ship.set", ship })} />
       </div>
     </div>
   );

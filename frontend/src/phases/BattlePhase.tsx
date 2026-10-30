@@ -1,15 +1,18 @@
 import { useCallback } from "react";
-import { BASE_TOPIC_HP, SHIELD_HP, rankTopics, topicMaxHp } from "@yart/shared";
+import { rankTopics, topicMaxHp } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
 import { PhaseIntro } from "../components/common";
 import { BattleCanvas } from "../game/BattleCanvas";
+import type { Hit } from "../game/BattleCanvas";
+import { ShipPicker } from "../components/ShipPicker";
 
 export function BattlePhase() {
   const { room, battle, topics, me, isOwner, isViewer, send, now } = useRoom();
   const sendInput = useCallback(
-    (x: number, hits: { a: number; at: number }[]) => send({ t: "battle.input", x, hits }),
+    (x: number, y: number, f: boolean, hits: Hit[]) => send({ t: "battle.input", x, y, f, hits }),
     [send]
   );
+  const sendSpecial = useCallback(() => send({ t: "battle.special" }), [send]);
 
   if (battle) {
     return (
@@ -22,6 +25,7 @@ export function BattlePhase() {
           canPlay={!isViewer}
           now={now}
           sendInput={sendInput}
+          sendSpecial={sendSpecial}
         />
       </div>
     );
@@ -77,6 +81,7 @@ export function BattlePhase() {
   }
 
   const ranked = rankTopics(topics, room.shields.totals ?? {});
+  const players = room.participants.filter((p) => p.online && p.role !== "viewer").length;
   return (
     <div className="phase battle briefing">
       <PhaseIntro
@@ -89,20 +94,33 @@ export function BattlePhase() {
           )
         }
       >
-        Your shields became armour: every topic starts with {BASE_TOPIC_HP} HP plus {SHIELD_HP} per shield.
-        One lane at a time comes under attack — hold out until it escapes to safety, and it gets harder lane
-        by lane. Work together to shoot down the invaders before they wreck the board — bosses need the whole
-        team. This is just for fun — it won't change the discussion order.
+        Your shields became armour. Lanes move in one at a time and come under attack; hold out until each one
+        flies down to the safe zone. It gets harder as you go, and bosses need the whole team. This is just
+        for fun — it won't change the discussion order.
       </PhaseIntro>
       <div className="briefing-grid">
+        {!isViewer && (
+          <section className="panel briefing-ship">
+            <h3>Your ship</h3>
+            <ShipPicker
+              value={me.ship}
+              colour={me.colour}
+              onChange={(ship) => send({ t: "ship.set", ship })}
+            />
+          </section>
+        )}
         <section className="panel">
           <h3>Controls</h3>
           <ul className="controls">
             <li>
-              <kbd>Mouse</kbd> or <kbd>←</kbd> <kbd>→</kbd> / <kbd>A</kbd> <kbd>D</kbd> to move
+              Fly with the <kbd>Mouse</kbd> or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> / arrows —
+              you drift back unless you keep pushing forward
             </li>
             <li>
               <kbd>Click</kbd> or hold <kbd>Space</kbd> to fire
+            </li>
+            <li>
+              Hits charge your special — <kbd>E</kbd>, <kbd>Shift</kbd> or right-click to unleash it
             </li>
           </ul>
           {!isOwner && <p className="muted">Waiting for the facilitator to launch…</p>}
@@ -115,7 +133,7 @@ export function BattlePhase() {
               return (
                 <li key={t.id}>
                   <span className="fate-title">{t.title}</span>
-                  <span className="muted">{topicMaxHp(shields)} HP</span>
+                  <span className="muted">{topicMaxHp(shields, players)} HP</span>
                 </li>
               );
             })}
