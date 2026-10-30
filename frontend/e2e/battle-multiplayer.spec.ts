@@ -7,6 +7,7 @@ interface Debug {
   remotes: string[];
   sentHits: number;
   charge: number;
+  special: boolean;
   level: number;
 }
 const debug = (page: Page) =>
@@ -18,7 +19,7 @@ test("ships are chosen on joining and everyone flies in the same battle", async 
   page: owner,
   browser,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   await createRoom(owner, { pickShip: false });
   const code = owner.url().split("/r/")[1] as string;
 
@@ -71,6 +72,14 @@ test("ships are chosen on joining and everyone flies in the same battle", async 
 
   // Music is playing during the battle.
   expect(await sounds(alice)).toContain("music:start");
+
+  // Hitting enemies charges the special; when it's full a chime plays and E unleashes it.
+  await alice.keyboard.down(" ");
+  await expect.poll(async () => (await debug(alice))?.charge ?? 0, { timeout: 60_000 }).toBe(60);
+  await alice.keyboard.up(" ");
+  await expect.poll(() => sounds(alice)).toContain("ready");
+  await alice.keyboard.press("e");
+  await expect.poll(async () => (await debug(alice))?.special).toBe(true);
 
   await owner.getByRole("button", { name: "End battle now" }).click();
   await expect(alice.getByRole("heading", { name: /line held|losses|called off/ })).toBeVisible();

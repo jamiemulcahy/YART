@@ -103,6 +103,12 @@ export const sounds = {
     tone(220, 0, 0.5, "sawtooth", 0.12, 880);
     tone(440, 0.05, 0.45, "square", 0.06, 1320);
   },
+  ready() {
+    record("ready");
+    tone(660, 0, 0.12, "sine", 0.12);
+    tone(880, 0.1, 0.12, "sine", 0.12);
+    tone(1320, 0.2, 0.25, "sine", 0.12);
+  },
   go() {
     tone(990, 0, 0.3, "sine", 0.14);
   },
