@@ -1,4 +1,5 @@
 import type {
+  ShipKind,
   BattleResults,
   DiscussState,
   Group,
@@ -30,6 +31,7 @@ export interface ParticipantRec {
   name: string;
   colour: string;
   role: Role;
+  ship?: ShipKind;
   tokenHash: string;
   createdAt: number;
 }

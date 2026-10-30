@@ -3,7 +3,15 @@ import {
   ARENA_W,
   COUNTDOWN_MS,
   DEFAULT_SETTINGS,
-  FIRE_INTERVAL_MS,
+  DPS_BUDGET,
+  LANE_SWAP_MS,
+  SHIPS,
+  SHIP_MAX_Y,
+  SHIP_MIN_Y,
+  SPECIAL_COST,
+  SPECIAL_GRACE_MS,
+  SWARM_MISSILES,
+  WEAPON_DMG,
   LANE_COLOURS,
   LIMITS,
   MAX_BATTLE_TOPICS,
@@ -22,6 +30,7 @@ import {
 } from "@yart/shared";
 import type {
   AttackerScript,
+  BattleFx,
   BattleLive,
   BattleResults,
   Card,
@@ -36,9 +45,12 @@ import type {
   RoomSnapshot,
   ServerMessage,
   ShieldState,
+  ShipKind,
+  ShipSample,
   Strike,
   TimerState,
   Topic,
+  WeaponCode,
 } from "@yart/shared";
 import { Store } from "./store";
 import type { ActionRec, CardRec, Meta, NoteRec, ParticipantRec, RoomData } from "./store";
@@ -59,21 +71,36 @@ class Reject extends Error {
   }
 }
 
+interface Pilot {
+  /** Recent ship positions, to check shots against where the ship was when it fired. */
+  samples: ShipSample[];
+  /** Damage dealt in the last second, per weapon, for rate budgets. */
+  dealt: { at: number; dmg: number; w: WeaponCode }[];
+  charge: number;
+  specialUntil: number;
+  swarmLeft: number;
+}
+
 interface BattleRun {
   live: BattleLive;
   byId: Map<number, AttackerScript>;
+  dead: Set<number>;
   strikes: (Strike & { attacker: number })[];
   nextStrike: number;
   kills: Map<string, { kills: number; bossKills: number }>;
-  recentHits: Map<string, number[]>;
+  pilots: Map<string, Pilot>;
   /** participantId -> last time they sent input; idle players soften the invasion. */
   activeAt: Map<string, number>;
   players: number;
+  /** Specials fired since the last tick. */
+  fx: BattleFx[];
+  /** Attackers hit since the last tick, and by whom. */
+  hitBy: Record<number, string>;
   interval: ReturnType<typeof setInterval>;
-  dirty: boolean;
 }
 
-const BATTLE_TICK_MS = 200;
+const BATTLE_TICK_MS = 100;
+const SHIP_TIMEOUT_MS = 3000;
 const ACTIVITY_PERSIST_MS = 10 * 60_000;
 const ACTIVE_WINDOW_MS = 4000;
 /** Stored identities per room, online or not. Idle ones are pruned when this fills. */
@@ -301,6 +328,10 @@ export class RoomDO extends DurableObject<Env> {
         participant.role = "owner";
         this.store.put("participant", participant.id, participant);
       }
+      if (msg.ship && participant.role !== "viewer" && participant.ship !== msg.ship) {
+        participant.ship = msg.ship;
+        this.store.put("participant", participant.id, participant);
+      }
     } else {
       const role: Role = ownerValid ? "owner" : msg.viewer ? "viewer" : "participant";
       const online = this.onlineParticipants();
@@ -327,6 +358,7 @@ export class RoomDO extends DurableObject<Env> {
         name: randomName(new Set(all.map((p) => p.name))),
         colour: nextColour(all.filter((p) => p.role !== "viewer").map((p) => p.colour)),
         role,
+        ...(msg.ship && role !== "viewer" ? { ship: msg.ship } : {}),
         tokenHash: await sha256(token),
         createdAt: Date.now(),
       };
@@ -732,7 +764,21 @@ export class RoomDO extends DurableObject<Env> {
 
       case "battle.input": {
         if (role === "viewer" || !this.battle) return;
-        this.battleInput(me, msg.x, msg.hits);
+        this.battleInput(me, msg);
+        return;
+      }
+
+      case "battle.special": {
+        if (role === "viewer" || !this.battle) return;
+        this.battleSpecial(me);
+        return;
+      }
+
+      case "ship.set": {
+        contributor();
+        me.ship = msg.ship;
+        this.store.put("participant", me.id, me);
+        this.broadcast({ t: "participant", participant: this.participantView(me) });
         return;
       }
 
@@ -1049,7 +1095,7 @@ export class RoomDO extends DurableObject<Env> {
     const players = Math.max(1, this.onlineParticipants().filter((p) => p.role !== "viewer").length);
     const startsAt = Date.now() + COUNTDOWN_MS;
     const seed = crypto.getRandomValues(new Uint32Array(1))[0] as number;
-    // One level per lane, in board order.
+    // Lanes come in one after another, in board order.
     const lanes = data.meta.lanes
       .map((lane) => ({
         laneId: lane.id,
@@ -1057,21 +1103,21 @@ export class RoomDO extends DurableObject<Env> {
         topicIds: ordered.filter((t) => t.laneId === lane.id).map((t) => t.id),
       }))
       .filter((l) => l.topicIds.length > 0);
+    const laneSec = Math.min(
+      LIMITS.battleDurationMaxSec,
+      Math.max(LIMITS.battleDurationMinSec, data.meta.settings.battleDurationSec)
+    );
     const { levels, tiles, script } = planBattle({
       lanes,
       shields: totals,
       players,
       startsAt,
-      levelMs:
-        Math.min(
-          LIMITS.battleDurationMaxSec,
-          Math.max(LIMITS.battleDurationMinSec, data.meta.settings.battleDurationSec)
-        ) * 1000,
+      laneMs: laneSec * 1000,
       rand: seededRandom(seed),
     });
-    const endsAt = levels.at(-1)?.endsAt ?? startsAt;
+    const endsAt = (levels.at(-1)?.endsAt ?? startsAt) + LANE_SWAP_MS;
     const topicHp: Record<string, number> = {};
-    for (const t of ordered) topicHp[t.id] = topicMaxHp(totals[t.id] ?? 0);
+    for (const t of ordered) topicHp[t.id] = topicMaxHp(totals[t.id] ?? 0, players);
     const live: BattleLive = {
       startsAt,
       endsAt,
@@ -1090,84 +1136,145 @@ export class RoomDO extends DurableObject<Env> {
     this.battle = {
       live,
       byId: new Map(script.map((a) => [a.id, a])),
+      dead: new Set(),
       strikes,
       nextStrike: 0,
       kills: new Map(),
-      recentHits: new Map(),
+      pilots: new Map(),
       activeAt: new Map(),
       players,
+      fx: [],
+      hitBy: {},
       interval: setInterval(() => this.battleTick(), BATTLE_TICK_MS),
-      dirty: false,
     };
     // Sockets get a roomier rate limit for the battle.
     this.buckets.clear();
     this.broadcast({ t: "battle.start", battle: live });
   }
 
-  private battleInput(me: ParticipantRec, x: number, hits: { a: number; at: number }[]): void {
+  private pilot(run: BattleRun, pid: string): Pilot {
+    let pilot = run.pilots.get(pid);
+    if (!pilot) {
+      pilot = { samples: [], dealt: [], charge: 0, specialUntil: 0, swarmLeft: 0 };
+      run.pilots.set(pid, pilot);
+    }
+    return pilot;
+  }
+
+  private battleInput(
+    me: ParticipantRec,
+    msg: { x: number; y: number; f: boolean; hits: { a: number; at: number; w: WeaponCode }[] }
+  ): void {
+    const run = this.battle as BattleRun;
+    const now = Date.now();
+    // Ships can fly about during the countdown; shooting counts once the battle starts.
+    if (now < run.live.startsAt - COUNTDOWN_MS || now > run.live.endsAt) return;
+    const kind: ShipKind = me.ship ?? "viper";
+    const spec = SHIPS[kind];
+    const pilot = this.pilot(run, me.id);
+    const x = Math.min(ARENA_W, Math.max(0, msg.x));
+    const y = Math.min(SHIP_MAX_Y, Math.max(SHIP_MIN_Y, msg.y));
+    pilot.samples.push({ x, y, at: now });
+    pilot.samples = pilot.samples.filter((s) => s.at > now - 2500);
+    run.activeAt.set(me.id, now);
+
+    if (now >= run.live.startsAt) {
+      pilot.dealt = pilot.dealt.filter((d) => d.at > now - 1000);
+      const specialLive = now <= pilot.specialUntil + SPECIAL_GRACE_MS;
+      for (const hit of msg.hits) {
+        const w = hit.w;
+        // Only your own ship's weapons, and its special only while it's running.
+        if (w !== spec.primary && !(w === spec.specialWeapon && specialLive)) continue;
+        if (w === "sw" && pilot.swarmLeft <= 0) continue;
+        const dmg = WEAPON_DMG[w];
+        const recent = pilot.dealt.reduce((n, d) => (d.w === w ? n + d.dmg : n), 0);
+        if (recent + dmg > DPS_BUDGET[w]) continue;
+        const attacker = run.byId.get(hit.a);
+        if (!attacker || run.dead.has(attacker.id)) continue;
+        if (!plausibleHit(attacker, hit.at, w, pilot.samples, now)) continue;
+        pilot.dealt.push({ at: now, dmg, w });
+        if (w === "sw") pilot.swarmLeft -= 1;
+        if (w === spec.primary) pilot.charge = Math.min(SPECIAL_COST, pilot.charge + dmg);
+        const hp = (run.live.attackerHp[attacker.id] ?? attacker.hp) - dmg;
+        run.live.attackerHp[attacker.id] = hp;
+        run.hitBy[attacker.id] = me.id;
+        if (hp <= 0) {
+          run.dead.add(attacker.id);
+          run.live.dead.push(attacker.id);
+          const k = run.kills.get(me.id) ?? { kills: 0, bossKills: 0 };
+          k.kills += 1;
+          if (attacker.kind === "boss") k.bossKills += 1;
+          run.kills.set(me.id, k);
+        }
+      }
+    }
+    run.live.ships[me.id] = { x, y, f: msg.f, k: kind, c: Math.floor(pilot.charge), s: pilot.specialUntil };
+  }
+
+  private battleSpecial(me: ParticipantRec): void {
     const run = this.battle as BattleRun;
     const now = Date.now();
     if (now < run.live.startsAt || now > run.live.endsAt) return;
-    const shipX = Math.min(ARENA_W, Math.max(0, x));
-    run.live.ships[me.id] = shipX;
-    run.activeAt.set(me.id, now);
-    run.dirty = true;
-    const recent = (run.recentHits.get(me.id) ?? []).filter((t) => t > now - 1000);
-    const maxPerSec = Math.ceil(1000 / FIRE_INTERVAL_MS) + 1;
-    for (const hit of hits) {
-      if (recent.length >= maxPerSec) break;
-      const attacker = run.byId.get(hit.a);
-      if (!attacker || run.live.dead.includes(attacker.id)) continue;
-      if (!plausibleHit(attacker, hit.at, shipX, now)) continue;
-      recent.push(now);
-      const hp = (run.live.attackerHp[attacker.id] ?? attacker.hp) - 1;
-      run.live.attackerHp[attacker.id] = hp;
-      if (hp <= 0) {
-        run.live.dead.push(attacker.id);
-        const k = run.kills.get(me.id) ?? { kills: 0, bossKills: 0 };
-        k.kills += 1;
-        if (attacker.kind === "boss") k.bossKills += 1;
-        run.kills.set(me.id, k);
-      }
-    }
-    run.recentHits.set(me.id, recent);
+    const pilot = this.pilot(run, me.id);
+    if (pilot.charge < SPECIAL_COST || now < pilot.specialUntil) return;
+    const kind: ShipKind = me.ship ?? "viper";
+    const spec = SHIPS[kind];
+    pilot.charge = 0;
+    pilot.specialUntil = now + spec.specialMs;
+    pilot.swarmLeft = spec.specialWeapon === "sw" ? SWARM_MISSILES : 0;
+    const last = pilot.samples.at(-1);
+    run.fx.push({
+      p: me.id,
+      w: spec.specialWeapon,
+      at: now,
+      x: last?.x ?? ARENA_W / 2,
+      y: last?.y ?? SHIP_MAX_Y,
+    });
+    const ship = run.live.ships[me.id];
+    if (ship) run.live.ships[me.id] = { ...ship, c: 0, s: pilot.specialUntil };
   }
 
   private battleTick(): void {
     const run = this.battle;
     if (!run) return;
     const now = Date.now();
-    const dead = new Set(run.live.dead);
     // The script is sized for everyone online; scale damage down when people sit it out.
     const active = [...run.activeAt.values()].filter((t) => t > now - ACTIVE_WINDOW_MS).length;
     const dmgScale = Math.min(1, Math.max(MIN_DAMAGE_SCALE, Math.max(1, active) / run.players));
     while (run.nextStrike < run.strikes.length) {
       const s = run.strikes[run.nextStrike] as Strike & { attacker: number };
-      if (s.at > now || s.at > run.live.endsAt) break;
+      if (s.at > now) break;
       run.nextStrike++;
-      if (dead.has(s.attacker)) continue;
+      if (run.dead.has(s.attacker)) continue;
       const hp = run.live.topicHp[s.topicId];
       if (hp === undefined || hp <= 0) continue;
       run.live.topicHp[s.topicId] = Math.max(0, hp - s.dmg * dmgScale);
-      run.dirty = true;
     }
-    const allDead = run.live.dead.length === run.live.script.length;
+    // Ships that stop reporting (closed tab, lost connection) leave the field.
+    for (const [pid, at] of run.activeAt) {
+      if (at < now - SHIP_TIMEOUT_MS) {
+        run.live.ships = Object.fromEntries(Object.entries(run.live.ships).filter(([id]) => id !== pid));
+        run.activeAt.delete(pid);
+      }
+    }
+    const allDead = run.dead.size === run.live.script.length;
     if (now >= run.live.endsAt || (allDead && now > run.live.startsAt)) {
       this.endBattle(true);
       return;
     }
-    if (run.dirty) {
-      run.dirty = false;
-      this.broadcast({
-        t: "battle.tick",
-        tick: {
-          ships: run.live.ships,
-          attackerHp: run.live.attackerHp,
-          dead: run.live.dead,
-          topicHp: run.live.topicHp,
-        },
-      });
-    }
+    this.broadcast({
+      t: "battle.tick",
+      tick: {
+        ships: run.live.ships,
+        attackerHp: run.live.attackerHp,
+        dead: run.live.dead,
+        topicHp: run.live.topicHp,
+        fx: run.fx,
+        hitBy: run.hitBy,
+      },
+    });
+    run.fx = [];
+    run.hitBy = {};
   }
 
   private endBattle(announce: boolean): void {
@@ -1178,7 +1285,7 @@ export class RoomDO extends DurableObject<Env> {
     this.buckets.clear();
     const data = this.data as RoomData;
     const fates: BattleResults["fates"] = {};
-    // Only topics whose level actually started have a fate.
+    // Only topics whose lane actually came under attack have a fate.
     const now = Date.now();
     const fought = new Set(run.live.levels.flatMap((l, i) => (l.startsAt <= now ? [i] : [])));
     for (const tile of run.live.tiles) {
@@ -1204,7 +1311,14 @@ export class RoomDO extends DurableObject<Env> {
   // --------------------------------------------------------------- Views
 
   private participantView(p: ParticipantRec, excluding?: WebSocket): Participant {
-    return { id: p.id, name: p.name, colour: p.colour, role: p.role, online: this.isOnline(p.id, excluding) };
+    return {
+      id: p.id,
+      name: p.name,
+      colour: p.colour,
+      role: p.role,
+      online: this.isOnline(p.id, excluding),
+      ...(p.ship ? { ship: p.ship } : {}),
+    };
   }
 
   private cardView(c: CardRec, viewer: string): Card {
