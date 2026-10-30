@@ -16,7 +16,8 @@ import type {
   ShieldState,
   TimerState,
 } from "./types";
-import type { AttackerScript, BattleLevel, TopicTile } from "./battle";
+import { SHIP_KINDS, WEAPON_CODES } from "./battle";
+import type { AttackerScript, BattleLevel, ShipKind, TopicTile, WeaponCode } from "./battle";
 
 const id = z.string().min(1).max(40);
 // Text limits are enforced after cleaning; this only bounds the raw payload.
@@ -57,7 +58,9 @@ export const clientMessage = z.discriminatedUnion("t", [
     token: z.string().max(100).optional(),
     ownerKey: z.string().max(100).optional(),
     viewer: z.boolean().optional(),
+    ship: z.enum(SHIP_KINDS).optional(),
   }),
+  z.object({ t: z.literal("ship.set"), ship: z.enum(SHIP_KINDS) }),
   z.object({ t: z.literal("ping"), c: z.number() }),
   z.object({ t: z.literal("rename"), name: rawText(LIMITS.participantName) }),
   z.object({ t: z.literal("room.rename"), name: rawText(LIMITS.roomName) }),
@@ -89,9 +92,13 @@ export const clientMessage = z.discriminatedUnion("t", [
   z.object({ t: z.literal("battle.stop") }),
   z.object({
     t: z.literal("battle.input"),
-    x: z.number().min(0).max(10_000),
-    hits: z.array(z.object({ a: z.number().int().min(0), at: z.number() })).max(20),
+    x: z.number().min(-1000).max(10_000),
+    y: z.number().min(-1000).max(10_000),
+    /** Is the fire button held (lets everyone else draw this player's shots). */
+    f: z.boolean(),
+    hits: z.array(z.object({ a: z.number().int().min(0), at: z.number(), w: z.enum(WEAPON_CODES) })).max(40),
   }),
+  z.object({ t: z.literal("battle.special") }),
   z.object({ t: z.literal("topic.open"), topicId: id.nullable() }),
   z.object({ t: z.literal("topic.discussed"), topicId: id, value: z.boolean() }),
   z.object({ t: z.literal("note.add"), topicId: id, text: rawText(LIMITS.noteText) }),
@@ -142,14 +149,42 @@ export interface BattleLive {
   /** attacker id -> current hp (only attackers that have taken damage) */
   attackerHp: Record<number, number>;
   dead: number[];
-  ships: Record<string, number>;
+  ships: Record<string, ShipState>;
+  /** Present once ticks start arriving (ticks are merged into the live battle). */
+  fx?: BattleFx[];
+  hitBy?: Record<number, string>;
+}
+
+/** A player's ship as everyone else sees it. */
+export interface ShipState {
+  x: number;
+  y: number;
+  /** Firing right now. */
+  f: boolean;
+  k: ShipKind;
+  /** Special charge, 0–SPECIAL_COST. */
+  c: number;
+  /** Server time the active special ends, or 0. */
+  s: number;
+}
+
+/** A special move going off, so every client can draw it. */
+export interface BattleFx {
+  p: string;
+  w: WeaponCode;
+  at: number;
+  x: number;
+  y: number;
 }
 
 export interface BattleTick {
-  ships: Record<string, number>;
+  ships: Record<string, ShipState>;
   attackerHp: Record<number, number>;
   dead: number[];
   topicHp: Record<string, number>;
+  fx: BattleFx[];
+  /** attacker id -> participant who landed the last hit (for kill feed/flash colours). */
+  hitBy: Record<number, string>;
 }
 
 export type RoomPatch = Partial<{

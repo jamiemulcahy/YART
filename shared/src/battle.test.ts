@@ -2,30 +2,33 @@ import { describe, expect, it } from "vitest";
 import {
   ARENA_H,
   ARENA_W,
-  GRUNT,
+  BOSS,
+  ENEMIES,
+  LANE_SWAP_MS,
+  SAFE_ZONE_Y,
+  TILE_BOTTOM,
   attackerPos,
-  LEVEL_GAP_MS,
-  bossCount,
   currentLevel,
-  generateScript,
-  gruntsPerTopic,
+  laneOffset,
   layoutTiles,
   planBattle,
   plausibleHit,
   seededRandom,
+  waveFor,
 } from "./battle";
+import type { AttackerScript } from "./battle";
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `t${i}`);
 
 describe("layoutTiles", () => {
-  it.each([1, 3, 7, 12, 25, 40])("lays out %i tiles inside the arena without overlap", (n) => {
+  it.each([1, 3, 7, 12, 25, 40])("lays out %i tiles in the top band without overlap", (n) => {
     const tiles = layoutTiles(ids(n));
     expect(tiles).toHaveLength(n);
     for (const t of tiles) {
       expect(t.x - t.w / 2).toBeGreaterThanOrEqual(0);
       expect(t.x + t.w / 2).toBeLessThanOrEqual(ARENA_W);
       expect(t.y - t.h / 2).toBeGreaterThanOrEqual(0);
-      expect(t.y + t.h / 2).toBeLessThan(ARENA_H * 0.75);
+      expect(t.y + t.h / 2).toBeLessThanOrEqual(TILE_BOTTOM + 1);
     }
     for (let i = 0; i < tiles.length; i++) {
       for (let j = i + 1; j < tiles.length; j++) {
@@ -39,122 +42,162 @@ describe("layoutTiles", () => {
   });
 });
 
-describe("generateScript", () => {
-  const tiles = layoutTiles(ids(10));
-  const params = (seed: number, players = 4) => ({
-    tiles,
-    shields: { t3: 5, t7: 2 },
-    players,
-    startsAt: 10_000,
-    endsAt: 100_000,
-    rand: seededRandom(seed),
-  });
+describe("planBattle", () => {
+  const plan = (seed: number, players = 4) =>
+    planBattle({
+      lanes: [
+        { laneId: "a", title: "Mad", topicIds: ["a1", "a2", "a3"] },
+        { laneId: "b", title: "Sad", topicIds: ["b1", "b2"] },
+        { laneId: "c", title: "Glad", topicIds: ["c1", "c2", "c3", "c4"] },
+      ],
+      shields: { a2: 5, b1: 2 },
+      players,
+      startsAt: 10_000,
+      laneMs: 18_000,
+      rand: seededRandom(seed),
+    });
 
   it("is deterministic for a seed, so every client sees the same battle", () => {
-    expect(generateScript(params(42))).toEqual(generateScript(params(42)));
-    expect(generateScript(params(42))).not.toEqual(generateScript(params(43)));
+    expect(plan(42)).toEqual(plan(42));
+    expect(plan(42)).not.toEqual(plan(43));
   });
 
-  it("scales the invasion with the number of players", () => {
-    for (const players of [1, 4, 12]) {
-      const script = generateScript(params(1, players));
-      const grunts = script.filter((a) => a.kind === "grunt");
-      const bosses = script.filter((a) => a.kind === "boss");
-      expect(grunts).toHaveLength(tiles.length * gruntsPerTopic(players));
-      expect(bosses).toHaveLength(bossCount(players));
+  it("runs lanes back to back, overlapping only for the swap", () => {
+    const { levels } = plan(1);
+    expect(levels.map((l) => l.title)).toEqual(["Mad", "Sad", "Glad"]);
+    for (let i = 1; i < levels.length; i++) {
+      expect(levels[i]!.startsAt - levels[i - 1]!.endsAt).toBe(LANE_SWAP_MS);
+    }
+    expect(currentLevel(levels, levels[0]!.endsAt + 1)).toBe(1);
+  });
+
+  it("keeps each lane's attackers and strikes to that lane's window and tiles", () => {
+    const p = plan(7);
+    const ids = new Set(p.script.map((a) => a.id));
+    expect(ids.size).toBe(p.script.length);
+    for (const a of p.script) {
+      const level = p.levels[a.level]!;
+      expect(a.waypoints[0]!.at).toBeGreaterThanOrEqual(level.startsAt);
+      for (const s of a.strikes) {
+        expect(s.at).toBeLessThan(level.endsAt);
+        expect(p.tiles.find((t) => t.topicId === s.topicId)!.level).toBe(a.level);
+      }
     }
   });
 
-  it("sends every grunt to strike its own topic before the battle ends", () => {
-    const script = generateScript(params(7));
-    for (const a of script.filter((x) => x.kind === "grunt")) {
-      expect(a.strikes).toHaveLength(GRUNT.strikes);
-      const topic = a.strikes[0]!.topicId;
-      expect(a.strikes.every((s) => s.topicId === topic)).toBe(true);
-      expect(a.waypoints[0]!.at).toBeGreaterThanOrEqual(10_000);
-      expect(a.strikes.at(-1)!.at).toBeLessThan(100_000);
-    }
+  it("brings in a mix of enemies and ramps up lane by lane", () => {
+    const p = plan(3, 4);
+    const count = (level: number, kind: string) =>
+      p.script.filter((a) => a.level === level && a.kind === kind).length;
+    expect(count(0, "drone")).toBeGreaterThan(count(0, "grunt"));
+    expect(count(0, "boss")).toBe(0);
+    expect(count(2, "boss")).toBeGreaterThanOrEqual(1);
+    expect(count(2, "brute")).toBeGreaterThan(0);
+    // Later lanes trade fodder for brutes, but bring more total health.
+    const health = (w: ReturnType<typeof waveFor>) =>
+      w.drone * ENEMIES.drone.hp + w.grunt * ENEMIES.grunt.hp + w.brute * ENEMIES.brute.hp;
+    expect(health(waveFor(4, 4))).toBeGreaterThan(health(waveFor(4, 0)) * 1.4);
+    expect(waveFor(4, 4).brute).toBeGreaterThan(0);
   });
 
   it("sends the first boss after the most-shielded topic", () => {
-    const boss = generateScript(params(3)).find((a) => a.kind === "boss")!;
-    expect(boss.strikes[0]!.topicId).toBe("t3");
+    const boss = plan(3).script.find((a) => a.kind === "boss" && a.level === 1)!;
+    expect(boss.strikes[0]!.topicId).toBe("b1");
   });
 
-  it("attacker positions are continuous and only defined while on the field", () => {
-    const a = generateScript(params(9))[0]!;
-    const first = a.waypoints[0]!;
-    const last = a.waypoints.at(-1)!;
-    expect(attackerPos(a, first.at - 1)).toBeNull();
-    expect(attackerPos(a, last.at + 1)).toBeNull();
-    let prev = attackerPos(a, first.at)!;
-    for (let t = first.at + 50; t <= last.at; t += 50) {
-      const p = attackerPos(a, t)!;
-      expect(Math.hypot(p.x - prev.x, p.y - prev.y)).toBeLessThan(40);
-      prev = p;
+  it("moves attackers continuously and only while on the field", () => {
+    for (const a of plan(9).script.slice(0, 30)) {
+      const first = a.waypoints[0]!;
+      const last = a.waypoints.at(-1)!;
+      expect(attackerPos(a, first.at - 1)).toBeNull();
+      expect(attackerPos(a, last.at + 1)).toBeNull();
+      const speed = a.kind === "boss" ? BOSS.speed * 2.5 : ENEMIES[a.kind].speed * 1.8;
+      let prev = attackerPos(a, first.at)!;
+      for (let t = first.at + 50; t <= last.at; t += 50) {
+        const p = attackerPos(a, t)!;
+        expect(Math.hypot(p.x - prev.x, p.y - prev.y)).toBeLessThanOrEqual((speed * 50) / 1000 + 1);
+        prev = p;
+      }
     }
+  });
+});
+
+describe("laneOffset", () => {
+  const level = { laneId: "a", title: "Mad", startsAt: 10_000, endsAt: 28_000 };
+  it("slides in, holds, then flies down into the safe zone", () => {
+    expect(laneOffset(level, 10_000 - LANE_SWAP_MS - 1)).toBeNull();
+    expect(laneOffset(level, 10_000 - LANE_SWAP_MS / 2)!).toBeLessThan(0);
+    expect(laneOffset(level, 15_000)).toBe(0);
+    expect(laneOffset(level, 28_000 + LANE_SWAP_MS / 2)!).toBeGreaterThan(0);
+    expect(laneOffset(level, 28_000 + LANE_SWAP_MS - 1)!).toBeLessThanOrEqual(SAFE_ZONE_Y);
+    expect(laneOffset(level, 28_000 + LANE_SWAP_MS + 1)).toBeNull();
   });
 });
 
 describe("plausibleHit", () => {
-  const [a] = generateScript({
-    tiles: layoutTiles(["only"]),
-    shields: {},
-    players: 1,
-    startsAt: 0,
-    endsAt: 90_000,
-    rand: seededRandom(5),
-  });
-  const attacker = a!;
-  const t = attacker.waypoints[2]!.at;
-  const pos = attackerPos(attacker, t)!;
+  const grunt: AttackerScript = {
+    id: 1,
+    level: 0,
+    kind: "grunt",
+    hp: 5,
+    waypoints: [
+      { x: 400, y: 200, at: 0 },
+      { x: 400, y: 200, at: 10_000 },
+    ],
+    strikes: [],
+  };
+  const under = [{ x: 410, y: 700, at: 4900 }];
+  const farAway = [{ x: 1300, y: 700, at: 4900 }];
 
-  it("accepts a hit from a ship underneath the attacker", () => {
-    expect(plausibleHit(attacker, t, pos.x, t + 100)).toBe(true);
+  it("accepts blaster and laser hits from a ship underneath", () => {
+    expect(plausibleHit(grunt, 5000, "b", under, 5100)).toBe(true);
+    expect(plausibleHit(grunt, 5000, "l", under, 5100)).toBe(true);
   });
-  it("rejects hits from the far side of the arena", () => {
-    expect(plausibleHit(attacker, t, pos.x > 800 ? 0 : ARENA_W, t + 100)).toBe(false);
+  it("rejects straight-line hits from the far side of the arena", () => {
+    expect(plausibleHit(grunt, 5000, "b", farAway, 5100)).toBe(false);
+    expect(plausibleHit(grunt, 5000, "ion", farAway, 5100)).toBe(false);
   });
-  it("rejects stale and future claims", () => {
-    expect(plausibleHit(attacker, t, pos.x, t + 10_000)).toBe(false);
-    expect(plausibleHit(attacker, t + 5_000, pos.x, t)).toBe(false);
+  it("lets homing missiles hit anything on the field", () => {
+    expect(plausibleHit(grunt, 5000, "m", farAway, 5100)).toBe(true);
   });
-  it("rejects hits before the attacker spawns", () => {
-    const before = attacker.waypoints[0]!.at - 10;
-    expect(plausibleHit(attacker, before, pos.x, before)).toBe(false);
+  it("rejects shots from in front of the target", () => {
+    expect(plausibleHit(grunt, 5000, "b", [{ x: 400, y: 150, at: 4900 }], 5100)).toBe(false);
+  });
+  it("rejects stale, future and off-field claims", () => {
+    expect(plausibleHit(grunt, 5000, "b", under, 9000)).toBe(false);
+    expect(plausibleHit(grunt, 9000, "b", under, 5000)).toBe(false);
+    expect(plausibleHit(grunt, 20_000, "m", under, 20_000)).toBe(false);
+  });
+  it("uses where the ship was when it fired, not where it is now", () => {
+    const moved = [
+      { x: 400, y: 700, at: 4700 },
+      { x: 1400, y: 700, at: 5050 },
+    ];
+    expect(plausibleHit(grunt, 5000, "b", moved, 5100)).toBe(true);
+  });
+  it("keeps the arena sane", () => {
+    expect(ARENA_H).toBeGreaterThan(SAFE_ZONE_Y);
   });
 });
 
-describe("planBattle", () => {
-  const plan = planBattle({
-    lanes: [
-      { laneId: "a", title: "Mad", topicIds: ["t1", "t2"] },
-      { laneId: "b", title: "Glad", topicIds: ["t3"] },
-    ],
-    shields: {},
-    players: 2,
-    startsAt: 1000,
-    levelMs: 30_000,
-    rand: seededRandom(11),
-  });
-
-  it("runs one level per lane, back to back with a breather", () => {
-    expect(plan.levels.map((l) => l.title)).toEqual(["Mad", "Glad"]);
-    expect(plan.levels[1]!.startsAt).toBe(plan.levels[0]!.endsAt + LEVEL_GAP_MS);
-    expect(currentLevel(plan.levels, plan.levels[0]!.endsAt + 1)).toBe(1);
-  });
-
-  it("keeps each level's tiles and attackers to itself", () => {
-    expect(plan.tiles.filter((t) => t.level === 0).map((t) => t.topicId)).toEqual(["t1", "t2"]);
-    const ids = new Set(plan.script.map((a) => a.id));
-    expect(ids.size).toBe(plan.script.length);
-    for (const a of plan.script) {
-      const level = plan.levels[a.level]!;
-      for (const s of a.strikes) {
-        expect(s.at).toBeGreaterThanOrEqual(level.startsAt);
-        expect(s.at).toBeLessThan(level.endsAt);
-        expect(plan.tiles.find((t) => t.topicId === s.topicId)!.level).toBe(a.level);
-      }
+describe("script size", () => {
+  it("stays small enough to send to every client, even for a big team", () => {
+    const lanes = Array.from({ length: 8 }, (_, l) => ({
+      laneId: `l${l}`,
+      title: `Lane ${l}`,
+      topicIds: Array.from({ length: 6 }, (_, i) => `l${l}t${i}`),
+    }));
+    const p = planBattle({
+      lanes,
+      shields: {},
+      players: 30,
+      startsAt: 0,
+      laneMs: 30_000,
+      rand: seededRandom(1),
+    });
+    for (let l = 0; l < lanes.length; l++) {
+      expect(p.script.filter((a) => a.level === l && a.kind !== "boss").length).toBeLessThanOrEqual(115);
     }
+    expect(JSON.stringify(p).length).toBeLessThan(400_000);
   });
 });

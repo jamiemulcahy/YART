@@ -21,12 +21,12 @@ export const LIMITS = {
   shieldsPerPersonMin: 1,
   shieldsPerPersonMax: 20,
   /** Seconds each lane is under attack in the battle. */
-  battleDurationMinSec: 15,
-  battleDurationMaxSec: 45,
+  battleDurationMinSec: 10,
+  battleDurationMaxSec: 30,
   /** Sustained inbound messages per second, per socket. */
   ratePerSec: 20,
   rateBurst: 40,
-  battleRatePerSec: 12,
+  battleRatePerSec: 15,
   /** A socket breaching limits this many times gets closed. */
   strikesBeforeClose: 50,
   holdMs: 10_000,
@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS = {
   shieldsPerPerson: 5,
   maxShieldsPerTopic: 3,
   showShieldTotals: false,
-  battleDurationSec: 25,
+  battleDurationSec: 18,
   showBattleStats: true,
 } as const;
 

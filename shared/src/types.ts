@@ -1,3 +1,5 @@
+import type { ShipKind } from "./battle";
+
 export const PHASES = ["setup", "write", "group", "defend", "battle", "discuss", "wrapup"] as const;
 export type Phase = (typeof PHASES)[number];
 
@@ -39,6 +41,8 @@ export interface Participant {
   colour: string;
   role: Role;
   online: boolean;
+  /** Chosen battle ship (participants only). */
+  ship?: ShipKind;
 }
 
 export interface Card {
