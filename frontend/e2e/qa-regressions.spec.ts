@@ -53,10 +53,10 @@ test("notes follow their cards when a group dissolves", async () => {
   await toPhase(owner, [], ["group"]);
   owner.send({ t: "card.move", id: b, target: { kind: "card", id: a } });
   const group = (await owner.next((m) => m.t === "group")).group as { id: string };
-  await toPhase(owner, [], ["defend", "discuss"]);
+  await toPhase(owner, [], ["vote", "discuss"]);
   owner.send({ t: "note.add", topicId: group.id, text: "keep me" });
   await owner.next((m) => m.t === "note");
-  await toPhase(owner, [], ["defend", "group"]);
+  await toPhase(owner, [], ["vote", "group"]);
   owner.send({ t: "card.move", id: b, target: { kind: "none" } });
   const moved = await owner.next((m) => m.t === "note" && (m.note as Msg).topicId !== group.id);
   expect((moved.note as Msg).text).toBe("keep me");
@@ -119,9 +119,9 @@ test("phase and settings rules found by QA", async () => {
   await toPhase(owner, [p], ["write"]);
   const a = await addCard(owner, laneId, "a");
   const b = await addCard(owner, laneId, "b");
-  await toPhase(owner, [p], ["group", "defend"]);
+  await toPhase(owner, [p], ["group", "vote"]);
 
-  // Lowering the budget mid-Defend trims existing shields.
+  // Lowering the budget mid-Vote trims existing shields.
   for (let i = 0; i < 3; i++) p.send({ t: "shield.add", topicId: a });
   p.send({ t: "shield.add", topicId: b });
   await p.next(

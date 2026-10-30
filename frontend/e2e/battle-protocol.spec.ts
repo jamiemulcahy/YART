@@ -48,7 +48,7 @@ async function battleRoom(ships: [string, string]) {
   await a.next((m) => m.t === "snapshot" && (m.room as Msg).phase === "write");
   for (let i = 0; i < 4; i++) a.send({ t: "card.add", laneId, text: `topic ${i}` });
   await owner.next((m) => m.t === "card" && (m.card as Msg).text === "topic 3");
-  for (const phase of ["group", "defend", "battle"]) owner.send({ t: "phase.set", phase });
+  for (const phase of ["group", "vote", "discuss", "battle"]) owner.send({ t: "phase.set", phase });
   await a.next((m) => m.t === "snapshot" && (m.room as Msg).phase === "battle");
   owner.send({ t: "battle.launch" });
   const live = (await a.next((m) => m.t === "battle.start")).battle as Live;

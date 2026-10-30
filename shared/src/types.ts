@@ -1,13 +1,13 @@
 import type { ShipKind } from "./battle";
 
-export const PHASES = ["setup", "write", "group", "defend", "battle", "discuss", "wrapup"] as const;
+export const PHASES = ["setup", "write", "group", "vote", "discuss", "battle", "wrapup"] as const;
 export type Phase = (typeof PHASES)[number];
 
 export const PHASE_LABELS: Record<Phase, string> = {
   setup: "Setup",
   write: "Write",
   group: "Group",
-  defend: "Defend",
+  vote: "Vote",
   battle: "Battle",
   discuss: "Discuss",
   wrapup: "Wrap-up",
@@ -22,7 +22,7 @@ export interface RoomSettings {
   allowLateCards: boolean;
   shieldsPerPerson: number;
   maxShieldsPerTopic: number;
-  /** Participants see shield totals while defending (owner always does). */
+  /** Participants see vote totals while voting (owner always does). */
   showShieldTotals: boolean;
   battleDurationSec: number;
   showBattleStats: boolean;

@@ -91,8 +91,8 @@ test("server enforces text, card and shield limits", async () => {
 
   // Shield budget.
   owner.send({ t: "phase.set", phase: "group" });
-  owner.send({ t: "phase.set", phase: "defend" });
-  await p.next((m) => m.t === "snapshot" && (m.room as Msg).phase === "defend");
+  owner.send({ t: "phase.set", phase: "vote" });
+  await p.next((m) => m.t === "snapshot" && (m.room as Msg).phase === "vote");
   for (let i = 0; i < 4; i++) p.send({ t: "shield.add", topicId: ownerCard.id });
   await p.next(isError("LIMIT"));
   const shields = await p.next(

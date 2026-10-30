@@ -41,7 +41,8 @@ test("ships are chosen on joining and everyone flies in the same battle", async 
   await addCard(alice, "Mad", "Defend me");
   await addCard(owner, "Sad", "And me");
   await nextPhase(owner, "Group");
-  await nextPhase(owner, "Defend");
+  await nextPhase(owner, "Vote");
+  await nextPhase(owner, "Discuss");
   await nextPhase(owner, "Battle");
 
   // Ships can be changed in the briefing.

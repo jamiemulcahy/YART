@@ -138,7 +138,7 @@ Browser → WebSocket → Cloudflare Worker → RoomDO (Durable Object, SQLite)
 - `GET /api/rooms/:code` - Check if a room exists
 - `GET /api/rooms/:code/ws` - WebSocket upgrade (first message must be `hello`)
 
-**Phases:** Setup → Write → Group → Defend (shields = votes) → Battle (optional, cosmetic) → Discuss → Wrap-up
+**Phases:** Setup → Write → Group → Vote → Discuss → Battle (optional, cosmetic; votes become shields) → Wrap-up
 
 ## Code Conventions
 
@@ -176,5 +176,5 @@ docs/style/refactor/test/chore(scope): description
 - **Owner Key**: Secret returned on room creation; proves facilitator rights. Never sent in URLs.
 - **Participant token**: Secret issued on first join, stored in localStorage; reconnecting with it restores the same identity.
 - **Hidden cards**: Face-down to everyone but their author until the owner reveals them (or Write ends).
-- **Topic**: A group, or a card that isn't in a group. Topics get shields, get attacked, get discussed.
+- **Topic**: A group, or a card that isn't in a group. Topics get votes, get discussed, get attacked.
 - **Anonymous Identity**: Random names (e.g. "Dastardly Pigeon"), no accounts. Card authorship is never shown.

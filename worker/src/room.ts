@@ -121,6 +121,8 @@ export class RoomDO extends DurableObject<Env> {
     super(ctx, env);
     this.store = new Store(ctx.storage.sql);
     this.data = this.store.load();
+    // Rooms created before the phases were reordered stored the voting phase as "defend".
+    if (this.data && (this.data.meta.phase as string) === "defend") this.data.meta.phase = "vote";
   }
 
   // ---------------------------------------------------------------- HTTP
@@ -725,7 +727,7 @@ export class RoomDO extends DurableObject<Env> {
       case "shield.add":
       case "shield.remove": {
         contributor();
-        phase("defend");
+        phase("vote");
         if (!this.topicExists(msg.topicId)) throw new Reject("NOT_FOUND", "That topic no longer exists");
         const mine = { ...(data.shields.get(me.id) ?? {}) };
         const used = Object.values(mine).reduce((a, b) => a + b, 0);
@@ -920,14 +922,15 @@ export class RoomDO extends DurableObject<Env> {
     if (from === next) return;
     const a = PHASES.indexOf(from);
     const b = PHASES.indexOf(next);
-    const skipBattle = (from === "defend" && next === "discuss") || (from === "discuss" && next === "defend");
+    // The battle is optional: Discuss can go straight to Wrap-up and back.
+    const skipBattle = (from === "discuss" && next === "wrapup") || (from === "wrapup" && next === "discuss");
     if (Math.abs(a - b) !== 1 && !skipBattle) throw new Reject("WRONG_PHASE", "Move one phase at a time");
     if (next === "write" && meta.lanes.length === 0)
       throw new Reject("FORBIDDEN", "Add at least one lane first");
 
     if (from === "battle") this.endBattle(false);
     // Results only make sense for the shields they were fought with.
-    if (next === "battle" || next === "defend") meta.battle = null;
+    if (next === "battle" || next === "vote") meta.battle = null;
     if (from === "write" && b > a) meta.revealed = true;
     this.holds.clear();
     meta.phase = next;
@@ -1341,7 +1344,7 @@ export class RoomDO extends DurableObject<Env> {
     const visible =
       att.role === "owner" ||
       meta.settings.showShieldTotals ||
-      !["setup", "write", "group", "defend"].includes(meta.phase);
+      !["setup", "write", "group", "vote"].includes(meta.phase);
     return { mine: { ...(data.shields.get(att.pid) ?? {}) }, totals: visible ? this.shieldTotals() : null };
   }
 

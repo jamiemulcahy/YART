@@ -43,8 +43,8 @@ export function BattlePhase() {
             survived + fell === 0 ? "Battle called off" : survived > fell ? "The line held!" : "Heavy losses!"
           }
         >
-          {survived} topics survived, {fell} fell. Don't worry — the battle doesn't change anything: topics
-          are still discussed in shield order.
+          {survived} {survived === 1 ? "topic" : "topics"} survived, {fell} fell. Just for fun — the retro's
+          results don't change.
         </PhaseIntro>
         <div className="results-grid">
           <section className="panel">
@@ -94,9 +94,9 @@ export function BattlePhase() {
           )
         }
       >
-        Your shields became armour. Lanes move in one at a time and come under attack; hold out until each one
-        flies down to the safe zone. It gets harder as you go, and bosses need the whole team. This is just
-        for fun — it won't change the discussion order.
+        Your votes have become 🛡 shields: the more votes a topic got, the tougher its armour. Lanes move in
+        one at a time and come under attack; hold out until each one flies down to the safe zone. It gets
+        harder as you go, and bosses need the whole team. Just for fun — the retro's results don't change.
       </PhaseIntro>
       <div className="briefing-grid">
         {!isViewer && (

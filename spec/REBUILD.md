@@ -39,12 +39,12 @@ shared/     protocol.ts (message types + validators), limits.ts, battle/ (pure s
 - **Room** — identified by a short shareable code (e.g. `K7M-QX2`, unambiguous characters only). Join link: `/r/<code>`.
 - **Owner** — the participant who holds the room's **owner key**. Owner key is a secret returned on room creation, stored in the creator's browser. (Co-host / handing over facilitation is post-MVP.)
 - **Participant** — anyone in the room. Gets a random made-up name ("Colourful Zebra", "Dastardly Pigeon") and a colour. Can rename themselves (within limits).
-- **Viewer** — joins with "Join as viewer" (e.g. a TV in a meeting room). Sees everything public, has no cards, shields or ship, isn't counted as a participant.
+- **Viewer** — joins with "Join as viewer" (e.g. a TV in a meeting room). Sees everything public, has no cards, votes or ship, isn't counted as a participant.
 - **Lane** — a column defined by the owner: title + short description.
 - **Card** — a single thought in a lane, written by one participant.
 - **Group** — a named stack of cards. A group behaves as one **topic** for voting, battle and discussion.
-- **Topic** — a group, or a card that isn't in a group. This is what gets shields, gets attacked and gets discussed.
-- **Shield** — a vote. Each participant has a fixed budget.
+- **Topic** — a group, or a card that isn't in a group. This is what gets votes, gets discussed and gets attacked.
+- **Vote** — each participant has a fixed budget. In the battle a topic's votes become its 🛡 shields.
 
 ## 4. Identity and reconnection
 
@@ -71,12 +71,12 @@ Owner-controlled. Every phase change is broadcast and everyone's UI follows.
 | 0   | **Setup**   | Owner creates lanes from a template or blank; sets options (§6, §7, §9). Participants can join and wait in a lobby. |
 | 1   | **Write**   | Everyone adds/edits/deletes their own cards.                                                                        |
 | 2   | **Group**   | Everyone drags cards into groups; names groups.                                                                     |
-| 3   | **Defend**  | Everyone places shields on topics. (This is the vote.)                                                              |
-| 4   | **Battle**  | Optional, cosmetic. Everyone defends the board from invaders. Owner can skip.                                       |
-| 5   | **Discuss** | Owner opens topics in shield order; everyone sees the open topic, adds notes and actions.                           |
+| 3   | **Vote**    | Everyone votes on topics.                                                                                           |
+| 4   | **Discuss** | Owner opens topics in vote order; everyone sees the open topic, adds notes and actions.                             |
+| 5   | **Battle**  | Optional, cosmetic. Votes become shields; everyone defends the board from invaders. Owner can skip it.              |
 | 6   | **Wrap-up** | Summary view + markdown export.                                                                                     |
 
-Navigation: owner can move forward or back one phase at a time. Going back from Defend to Group keeps shields on topics that still exist; shields on a dissolved group are refunded.
+Navigation: owner can move forward or back one phase at a time. Going back from Vote to Group keeps votes on topics that still exist; votes on a dissolved group are refunded. The battle comes after the conversation so it's a reward, not an interruption; "Skip battle" goes straight from Discuss to Wrap-up.
 
 Lane templates: Mad/Sad/Glad · Liked/Learned/Lacked/Longed for · Start/Stop/Continue · Went well/To improve/Actions · Blank.
 
@@ -123,18 +123,18 @@ Lanes keep a generous minimum width (600 px) and cards flow like post-its in bal
 - The server applies moves in arrival order and broadcasts the result; clients only animate what the server confirms (with an optimistic local preview while dragging).
 - Owner can **lock grouping** before moving on.
 
-## 9. Defend (voting)
+## 9. Vote
 
-- Each participant gets **N shields** (owner sets, default 5, range 1–20) and may put at most **M on one topic** (default 3, range 1–N).
-- Click a topic to add a shield, click your shield (or right-click/long-press) to remove. Changeable until the owner closes the phase.
-- Visuals: a shield bubble around the topic grows with total shields; your own shields are highlighted.
-- Owner option **Show totals live** (default off): when off, participants only see their own shields until the phase ends — avoids bandwagoning. The owner always sees totals.
-- Remaining shield count is always visible to each participant.
-- On leaving Defend, final totals are locked and become the discussion order.
+- Each participant gets **N votes** (owner sets, default 5, range 1–20) and may put at most **M on one topic** (default 3, range 1–N).
+- "+ Vote" adds a vote to a topic, "−" removes one of yours. Changeable until the owner closes the phase.
+- Your own votes show as pips on the topic.
+- Owner option **Show totals live** (default off): when off, participants only see their own votes until the phase ends — avoids bandwagoning. The owner always sees totals.
+- Remaining vote count is always visible to each participant.
+- On leaving Vote, final totals are locked and become the discussion order. In the battle each vote becomes a 🛡 shield on its topic.
 
 ## 10. Battle (optional, cosmetic)
 
-**The battle cannot change the retro.** Discussion order is the shield count, full stop. The battle gives every topic a dramatic fate (survived / fell) and the team a few minutes of co-op chaos.
+**The battle cannot change the retro.** Discussion order is the vote count, full stop. The battle gives every topic a dramatic fate (survived / fell) and the team a few minutes of co-op chaos.
 
 ### 10.1 Flow
 
@@ -150,11 +150,13 @@ Lanes keep a generous minimum width (600 px) and cards flow like post-its in bal
 | Lancer | Laser beam, 1 dmg / 120 ms to first in column | **Ion Cannon** — 2.2 s, 180-wide column, 3 dmg / 100 ms to everything in it |
 | Hornet | Homing missile, 5 dmg / 550 ms                | **Swarm** — 16 homing missiles                                              |
 
+Each pilot's special meter sits bottom-right: name, charge bar and percentage, then "READY — press E, Shift or right-click" with a chime and a centre banner when it fills.
+
 Flight: free movement in the lower half of the arena (mouse steers towards the pointer, or WASD/arrows), with a constant push back towards the bottom; stop thrusting and you fall back. Fire: click / Space. Special: E, Shift or right-click.
 
 ### 10.3 Enemies
 
-Drones (2 HP, fodder), grunts (5 HP), brutes (16 HP, heavy hitters, from lane 2) and bosses (visit several topics, need the team). Each lane's enemy health is a budget sized to the team's firepower (`0.85 × intensity × players × 5 dps × lane seconds`), so difficulty doesn't depend on how many topics a lane has. Above 110 enemies per lane they get tougher rather than more numerous. `shared/src/battle-balance.test.ts` simulates teams of 1–10 and pins the curve.
+Drones (2 HP, fodder), grunts (5 HP), brutes (16 HP, heavy hitters, from lane 2) and bosses (visit several topics, need the team). Each lane's enemy health is a budget sized to the team's firepower (`1.15 × intensity × players × 5 dps × lane seconds`), so difficulty doesn't depend on how many topics a lane has. Above 110 enemies per lane they get tougher rather than more numerous. `shared/src/battle-balance.test.ts` simulates teams of 1–10 and pins the curve.
 
 ### 10.4 Keeping everyone in sync
 
@@ -162,7 +164,7 @@ Drones (2 HP, fodder), grunts (5 HP), brutes (16 HP, heavy hitters, from lane 2)
 - Every 100 ms each client sends `battle.input { x, y, f (firing), hits: [{ a, at, w }] }`; the server broadcasts `battle.tick` with every ship (position, ship class, firing, charge, special-until), attacker HP, deaths, topic HP, specials fired (`fx`) and who hit what (`hitBy`).
 - Other players' shots are drawn locally from their ship state (firing flag, class, special); damage only ever comes from the server.
 - **Hit validation:** the weapon must be your ship's (or its special while active); damage per weapon is fixed server-side; per-weapon damage-per-second budgets; the attacker must be on the field at `at` (≤ 2 s old); straight-line weapons must have been fired from roughly underneath, checked against the ship's recorded positions around that time; homing missiles can hit anything on the field; Swarm is capped at 16 hits per activation.
-- Specials need full charge (server-tracked, filled 1:1 by normal-weapon damage). Ships that stop reporting for 3 s leave the field. Idle players soften enemy damage (min 35 %).
+- Specials need full charge (server-tracked, filled 1:1 by normal-weapon damage). Ships that stop reporting for 3 s leave the field. Idle players soften enemy damage (min 35 %). A **director** then scales enemy damage by the team's actual damage over the last 10 s against the expected 5 dps per active player (×0.75 to ×1.8, after a 5 s warm-up), so strong teams still lose topics and weak teams aren't wiped out.
 
 ### 10.5 End of battle
 
@@ -178,7 +180,7 @@ Drones (2 HP, fodder), grunts (5 HP), brutes (16 HP, heavy hitters, from lane 2)
 
 ### Discuss
 
-- Topics listed by shields (desc). Ties: more cards in group first, then earliest created.
+- Topics listed by votes (desc). Ties: more cards in group first, then earliest created.
 - Owner **opens** a topic → it opens full-screen-ish for everyone. Owner can step **next/previous** or pick any topic.
 - **Notes**: append-only list of short notes on the open topic, each editable/deletable by its author (avoids collaborative-text-editing conflicts). Owner can delete any note.
 - **Actions**: text + optional owner (free text). Can be added on any topic, or as general room actions.
@@ -191,11 +193,11 @@ Available to everyone in Wrap-up. Example:
 ```markdown
 # Sprint 42 Retro — 2026-10-29
 
-Participants: 8 · Shields per person: 5
+Participants: 8 · Votes per person: 5
 
-## Topics (by shields)
+## Topics (by votes)
 
-### 1. Deploys are too slow — 🛡 14 (survived)
+### 1. Deploys are too slow — 14 votes (survived)
 
 _Group of 3 · Sad, Mad_
 
@@ -213,7 +215,7 @@ _Group of 3 · Sad, Mad_
 
 ### 2. ...
 
-## Other cards (no shields)
+## Other topics (no votes)
 
 - ...
 
@@ -243,7 +245,7 @@ JSON over one WebSocket per tab. Every message has `t` (type). All types and val
 | `card.hold { id }` / `card.release { id }`                                    | any                       | Group            |
 | `card.move { id, toGroupId? , toCardId? , ungroup? }`                         | any                       | Group            |
 | `group.rename { id, title }`                                                  | any                       | Group            |
-| `shield.add { topicId }` / `shield.remove { topicId }`                        | any                       | Defend           |
+| `shield.add { topicId }` / `shield.remove { topicId }`                        | any                       | Vote             |
 | `battle.input { x, hits: { attackerId, at }[] }`                              | any                       | Battle           |
 | `topic.open { topicId }` / `topic.markDiscussed { topicId }`                  | owner                     | Discuss          |
 | `note.add/edit/remove`, `action.add/edit/remove`                              | any (own) / owner (any)   | Discuss, Wrap-up |

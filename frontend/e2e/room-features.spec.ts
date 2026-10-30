@@ -209,8 +209,9 @@ test("battle launches for everyone and reports results", async ({ page: owner, b
   await addCard(alice, "Mad", "Nobody cares about me");
   await addCard(alice, "Mad", `${"Lorem ipsum dolor sit amet ".repeat(12)}${"x".repeat(150)}`);
   await nextPhase(owner, "Group");
-  await nextPhase(owner, "Defend");
-  await alice.getByRole("button", { name: "Add a shield to Protect me" }).click();
+  await nextPhase(owner, "Vote");
+  await alice.getByRole("button", { name: "Add a vote to Protect me" }).click();
+  await nextPhase(owner, "Discuss");
   await nextPhase(owner, "Battle");
   await expect(alice.getByText("Invaders incoming!")).toBeVisible();
   await expect(alice.getByText("Waiting for the facilitator to launch…")).toBeVisible();
@@ -237,9 +238,9 @@ test("battle launches for everyone and reports results", async ({ page: owner, b
     .evaluate((el) => el.scrollWidth - (el.closest(".panel") as HTMLElement).clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await expect(alice.getByText(/topics? survived/)).toBeVisible();
-  // The battle doesn't change discussion order.
-  await nextPhase(owner, "Discuss");
-  await expect(alice.locator(".topic-rank li").first()).toContainText("Protect me");
+  // The battle doesn't change the results.
+  await nextPhase(owner, "Wrap-up");
+  await expect(alice.locator(".top-topics li").first()).toContainText("Protect me");
 });
 
 test("owner can delete the room", async ({ page: owner, browser }) => {

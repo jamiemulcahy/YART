@@ -1972,3 +1972,16 @@ button.rank-row:hover {
 .briefing-ship {
   grid-column: 1 / -1;
 }
+
+.vote-pip {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin: 0 2px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.my-shields {
+  color: var(--accent);
+  letter-spacing: 1px;
+}
