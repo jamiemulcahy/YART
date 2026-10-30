@@ -278,9 +278,19 @@ export function laneIntensity(level: number): number {
 }
 
 /** Damage per second we assume each player manages (aim, dodging and misses included). */
-const ASSUMED_DPS = 5;
+export const ASSUMED_DPS = 5;
+
+/**
+ * The "director": teams shooting better than expected feel more bite from whatever gets through,
+ * teams struggling get a little slack. Scales strike damage only, so it's applied server-side and
+ * never desyncs anyone.
+ */
+export function directorScale(teamDps: number, activePlayers: number): number {
+  const expected = ASSUMED_DPS * Math.max(1, activePlayers);
+  return Math.min(1.8, Math.max(0.75, teamDps / expected));
+}
 /** Enemy health each lane brings, relative to what the team can deal in that time. */
-const PRESSURE = 0.85;
+const PRESSURE = 1.15;
 
 /**
  * How many of each enemy a lane brings. Sized by total health against the team's firepower, so
