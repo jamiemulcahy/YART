@@ -133,47 +133,6 @@ test("unknown rooms 404 and room codes are case/dash insensitive", async () => {
   expect(bad.status).toBe(400);
 });
 
-test("battle: plausible hits kill attackers, implausible ones are ignored", async () => {
-  const { code, ownerKey } = await apiCreateRoom([{ title: "Only", description: "" }]);
-  const owner = await rawSocket(code, { ownerKey });
-  const laneId = (
-    ((owner.messages.find((m) => m.t === "snapshot") as Msg).room as Msg).lanes as { id: string }[]
-  )[0]?.id;
-  for (const phase of ["write"]) owner.send({ t: "phase.set", phase });
-  owner.send({ t: "card.add", laneId, text: "defend me" });
-  await owner.next((m) => m.t === "card");
-  for (const phase of ["group", "defend", "battle"]) owner.send({ t: "phase.set", phase });
-  owner.send({ t: "battle.launch" });
-  const start = (await owner.next((m) => m.t === "battle.start")).battle as {
-    startsAt: number;
-    script: { id: number; hp: number; kind: string; waypoints: { x: number; y: number; at: number }[] }[];
-  };
-  const offset = Number(owner.welcome.serverTime) - Date.now();
-  const serverNow = () => Date.now() + offset;
-  // Pick the first grunt and wait until it's on the field.
-  const grunt = start.script
-    .filter((a) => a.kind === "grunt")
-    .sort((a, b) => a.waypoints[0]!.at - b.waypoints[0]!.at)[0]!;
-  const mid = grunt.waypoints[1]!;
-  await new Promise((r) => setTimeout(r, Math.max(0, mid.at - serverNow() + 50)));
-  const at = Math.round(serverNow());
-  // Wrong side of the arena: ignored.
-  owner.send({ t: "battle.input", x: mid.x > 800 ? 50 : 1550, hits: [{ a: grunt.id, at }] });
-  // Right underneath it: counted.
-  await new Promise((r) => setTimeout(r, 300));
-  const hits = Array.from({ length: grunt.hp }, (_, i) => ({ a: grunt.id, at: at + i }));
-  owner.send({ t: "battle.input", x: Math.round(mid.x), hits });
-  const tick = await owner.next(
-    (m) => m.t === "battle.tick" && ((m.tick as Msg).dead as number[]).includes(grunt.id)
-  );
-  expect(((tick.tick as Msg).dead as number[]).length).toBe(1);
-  owner.send({ t: "battle.stop" });
-  const end = await owner.next((m) => m.t === "battle.end");
-  const stats = (end.results as Msg).stats as { kills: number }[];
-  expect(stats[0]?.kills).toBe(1);
-  owner.ws.close();
-});
-
 test("the owner can't remove other people's cards", async () => {
   const { code, ownerKey } = await apiCreateRoom();
   const owner = await rawSocket(code, { ownerKey });

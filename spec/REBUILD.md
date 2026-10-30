@@ -134,68 +134,45 @@ Lanes keep a generous minimum width (600 px) and cards flow like post-its in bal
 
 ## 10. Battle (optional, cosmetic)
 
-**The battle cannot change the retro.** Discussion order is the shield count, full stop. The battle just gives every topic a dramatic fate (survived / fell) and gives the team two minutes of chaos.
+**The battle cannot change the retro.** Discussion order is the shield count, full stop. The battle gives every topic a dramatic fate (survived / fell) and the team a few minutes of co-op chaos.
 
-### 10.1 Arena
+### 10.1 Flow
 
-- Logical coordinate space of **1000 × 1000** units, scaled to the screen. All positions in messages and scripts use these units, so every screen agrees.
-- **One lane at a time is under attack.** For 15–45 s (default 25) its topics fill the arena; then that lane flies down to safety (survivors marked SAFE) while the next lane drops in. Pressure rises lane by lane: more grunts (×1.25 → ×1.8) and more bosses (none in the opening lane).
-- Within a level, topics are laid out in a deterministic grid from a shared `layout(topics)` function (sorted by topic id) in `shared/`. Every client and the server compute identical positions.
-- Each participant has a ship on the bottom edge, moved horizontally by mouse or ←/→ (A/D). Space or click fires. Fire rate capped (e.g. 4 shots/s).
-- Topic HP = `BASE_HP + SHIELD_HP × shields`.
+- One continuous run, no "levels" on screen. Each lane's topics drop in at the top, are under attack for 10–30 s (owner setting, default 18), then fly down into the **safe zone** at the bottom as the next lane drops in (1.5 s swap). No timer is shown — only the safe zone tally (saved / lost).
+- Pressure rises lane by lane: more enemy health, more brutes, more bosses (none in the opening lane).
+- Topic HP = `60 × (0.6 + 0.4 × players) + 30 × shields`.
 
-### 10.2 Attackers
+### 10.2 Ships (chosen on joining; the owner is asked on entering the room; changeable in the briefing)
 
-- **Grunts**: small, low HP, fast, each targets one topic.
-- **Bosses** (0 in the first lane, rising to 3 in later lanes; +1 with 6+ players): big, slow, HP scaled with player count, travel across several topics damaging each. Need the team to gang up.
-- Total attacker damage and HP are tuned from player count and total shields so that, typically, unshielded topics fall and well-shielded ones survive. Tuning target (to validate in playtests): ~70 % of unshielded topics fall, top 3 topics survive ~90 % of the time.
-- Ends after the last level, or early via **End battle now** (only levels that started get fates).
-- Tuning: topic HP 25 + 15/shield; grunts 2 HP, `(2.7 + 1.3 × players) × lane intensity` per topic, 3 strikes of 6. `shared/src/battle-balance.test.ts` simulates teams of different size and skill and pins the curve: lane 1 holdable, later lanes harder, shields still matter.
+| Ship   | Weapon                                        | Special (charged by your hits, 60 charge)                                   |
+| ------ | --------------------------------------------- | --------------------------------------------------------------------------- |
+| Viper  | Rapid blaster, 1 dmg / 110 ms                 | **Overdrive** — 6 s triple-spread, 70 ms fire                               |
+| Lancer | Laser beam, 1 dmg / 120 ms to first in column | **Ion Cannon** — 2.2 s, 180-wide column, 3 dmg / 100 ms to everything in it |
+| Hornet | Homing missile, 5 dmg / 550 ms                | **Swarm** — 16 homing missiles                                              |
 
-### 10.3 Keeping everyone in sync (the important bit)
+Flight: free movement in the lower half of the arena (mouse steers towards the pointer, or WASD/arrows), with a constant push back towards the bottom; stop thrusting and you fall back. Fire: click / Space. Special: E, Shift or right-click.
 
-The server generates the whole battle up front as a **script** and sends it to everyone:
+### 10.3 Enemies
 
-```ts
-type AttackerScript = {
-  id: number;
-  kind: "grunt" | "boss";
-  hp: number;
-  spawnAt: number; // server ms
-  // piecewise-linear path; position at time t is pure interpolation
-  waypoints: { x: number; y: number; at: number }[];
-  // damage events: "if I'm still alive at `at`, deal `dmg` to `topicId`"
-  strikes: { topicId: string; at: number; dmg: number }[];
-};
-```
+Drones (2 HP, fodder), grunts (5 HP), brutes (16 HP, heavy hitters, from lane 2) and bosses (visit several topics, need the team). Each lane's enemy health is a budget sized to the team's firepower (`0.85 × intensity × players × 5 dps × lane seconds`), so difficulty doesn't depend on how many topics a lane has. Above 110 enemies per lane they get tougher rather than more numerous. `shared/src/battle-balance.test.ts` simulates teams of 1–10 and pins the curve.
 
-- Because position is a pure function of time, every client draws every attacker in the same place at the same moment. Nothing about movement is ever sent again.
-- The only thing that diverges is **whether an attacker is alive**, and only the server decides that:
-  - Clients detect hits locally and send claims: `{ attackerId, at }`.
-  - Server validates each claim: attacker exists, spawned, not dead, `at` within the last ~1 s, player within their fire-rate budget. Valid → subtract damage.
-  - Server processes due `strikes` on a ~5 Hz loop: if the attacker is alive at the strike time, the topic takes damage.
-  - The script is sized for everyone online at launch. Strike damage is scaled by the share of players who are actually sending input (minimum 35 %), so a room full of idle people doesn't get flattened.
-- Clients show an instant hit flash (optimistic) but only show a **death** or **topic damage** when the server confirms. No "I saw it attack A, you saw it attack B": targets are in the script; outcomes come from one authority.
-- Late joiners / refreshers receive the script + current state and drop straight in.
+### 10.4 Keeping everyone in sync
 
-### 10.4 Message budget
-
-- Client → server: one message per ~200 ms while playing: `{ x, hits: [...] }` (ship position + hit claims batched).
-- Server → clients: one broadcast per ~200 ms: ship positions, attacker HP changes, deaths, topic HP changes.
-- Estimate for 10 players × 90 s: ~4,500 inbound, ~450 outbound broadcasts. Clients interpolate ship positions between updates.
-- The DO stays awake for the battle only; it goes back to hibernation afterwards.
+- The server generates the whole battle as a **script** up front (attacker paths, strike times). Positions are a pure function of time, so every client draws every attacker identically with no movement messages.
+- Every 100 ms each client sends `battle.input { x, y, f (firing), hits: [{ a, at, w }] }`; the server broadcasts `battle.tick` with every ship (position, ship class, firing, charge, special-until), attacker HP, deaths, topic HP, specials fired (`fx`) and who hit what (`hitBy`).
+- Other players' shots are drawn locally from their ship state (firing flag, class, special); damage only ever comes from the server.
+- **Hit validation:** the weapon must be your ship's (or its special while active); damage per weapon is fixed server-side; per-weapon damage-per-second budgets; the attacker must be on the field at `at` (≤ 2 s old); straight-line weapons must have been fired from roughly underneath, checked against the ship's recorded positions around that time; homing missiles can hit anything on the field; Swarm is capped at 16 hits per activation.
+- Specials need full charge (server-tracked, filled 1:1 by normal-weapon damage). Ships that stop reporting for 3 s leave the field. Idle players soften enemy damage (min 35 %).
 
 ### 10.5 End of battle
 
-- Each topic is marked **survived** or **fell** (badge only).
-- Fun stats screen: most attackers destroyed, boss-killer, etc., by anonymous name. Owner option to hide individual stats.
-- Owner can end a battle early (**End battle now**), replay it, or click **Discuss** to move on.
+- Topics whose lane came under attack are marked **survived** or **fell**; the owner can end early, replay, or move on.
+- Leaderboard of kills / boss kills (owner can hide).
 
 ### 10.6 Presentation
 
-- Single theme v1: space invaders vs. the board. Sprites, sounds and palette in a `theme` module separate from logic.
-- Rendered on a Canvas 2D layer over the board (a few dozen sprites — no engine needed; revisit PixiJS only if perf demands).
-- Small screens/touch: spectate with tap-to-fire as a stretch goal.
+- Canvas 2D, pixel-art sprites drawn from bitmaps (no assets); stars stream past; safe zone band at the bottom.
+- Synthesised chiptune music (WebAudio) during the battle, speeding up lane by lane; respects mute.
 
 ## 11. Discuss and wrap-up
 

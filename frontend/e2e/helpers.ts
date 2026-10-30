@@ -6,7 +6,7 @@ export const WORKER_URL = "http://localhost:8797";
 /** Creates a room through the UI and returns the owner's page and the room code. */
 export async function createRoom(
   page: Page,
-  opts: { name?: string; template?: string } = {}
+  opts: { name?: string; template?: string; pickShip?: boolean } = {}
 ): Promise<string> {
   await page.goto("/");
   await page.getByLabel("Retro name").fill(opts.name ?? "Test retro");
@@ -14,6 +14,14 @@ export async function createRoom(
   await page.getByRole("button", { name: "Create room" }).click();
   await page.waitForURL(/\/r\/[A-Z0-9]{6}$/);
   await expect(page.getByText("Facilitator", { exact: true })).toBeVisible();
+  // The owner is asked for a battle ship before anything else.
+  if (opts.pickShip !== false) {
+    await page
+      .getByRole("dialog", { name: "Choose your ship" })
+      .getByRole("radio", { name: /Viper/ })
+      .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  }
   return page.url().split("/r/")[1] as string;
 }
 
