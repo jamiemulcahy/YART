@@ -19,6 +19,13 @@ export function exportMarkdown(room: RoomSnapshot): string {
   const date = new Date(room.createdAt).toISOString().slice(0, 10);
   const lines: string[] = [`# ${room.name} — ${date}`, ""];
   lines.push(`Participants: ${participants} · Votes per person: ${room.settings.shieldsPerPerson}`, "");
+  const score = room.battle?.score;
+  if (score) {
+    lines.push(
+      `Battle: Grade ${score.grade} — ${score.score}/100 · ${score.topicsSaved} of ${score.topicsFought} topics saved · ${score.enemyHpPct}% enemy health destroyed`,
+      ""
+    );
+  }
 
   const shielded = topics.filter((t) => (totals[t.id] ?? 0) > 0);
   const unshielded = topics.filter((t) => (totals[t.id] ?? 0) === 0);

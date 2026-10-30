@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import { rankTopics, topicMaxHp } from "@yart/shared";
+import { ATTACKER_KINDS, rankTopics, topicMaxHp } from "@yart/shared";
+import type { AttackerKind, BattleScore } from "@yart/shared";
 import { useRoom } from "../room/RoomContext";
 import { PhaseIntro } from "../components/common";
 import { BattleCanvas } from "../game/BattleCanvas";
@@ -47,6 +48,7 @@ export function BattlePhase() {
           results don't change.
         </PhaseIntro>
         <div className="results-grid">
+          {results.score && <ScorePanel score={results.score} />}
           <section className="panel">
             <h3>Fates</h3>
             <ul className="fates">
@@ -141,5 +143,55 @@ export function BattlePhase() {
         </section>
       </div>
     </div>
+  );
+}
+
+const ENEMY_LABELS: Record<AttackerKind, [string, string]> = {
+  drone: ["Drones", "🛸"],
+  grunt: ["Grunts", "👾"],
+  brute: ["Brutes", "🦾"],
+  boss: ["Bosses", "👑"],
+};
+
+function ScorePanel({ score }: { score: BattleScore }) {
+  const bosses = score.destroyed.boss;
+  return (
+    <section className="panel score-panel" aria-labelledby="team-score-heading">
+      <h3 id="team-score-heading">Team score</h3>
+      <div className="score-headline">
+        <span className={`grade grade-${score.grade.toLowerCase()}`} aria-label={`Grade ${score.grade}`}>
+          {score.grade}
+        </span>
+        <span className="score-number">
+          <strong>{score.score}</strong>
+          <span className="muted"> / 100</span>
+        </span>
+      </div>
+      <ul className="score-breakdown">
+        <li>
+          <span>Topics saved</span>
+          <span>
+            {score.topicsSaved} of {score.topicsFought}
+          </span>
+        </li>
+        <li>
+          <span>Enemy health destroyed</span>
+          <span>{score.enemyHpPct}%</span>
+        </li>
+        {ATTACKER_KINDS.filter((k) => score.faced[k] > 0).map((k) => (
+          <li key={k}>
+            <span>
+              <span aria-hidden="true">{ENEMY_LABELS[k][1]}</span> {ENEMY_LABELS[k][0]} destroyed
+            </span>
+            <span>
+              {score.destroyed[k]} of {score.faced[k]}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {bosses > 0 && (
+        <p className="boss-badge">👑 {bosses === 1 ? "Boss slayer" : `Boss slayer ×${bosses}`}</p>
+      )}
+    </section>
   );
 }

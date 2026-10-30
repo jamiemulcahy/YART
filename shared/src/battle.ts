@@ -539,3 +539,83 @@ export function plausibleHit(
   const samples = near.length > 0 ? near : ship.slice(-1);
   return samples.some((s) => pos.y < s.y && Math.abs(pos.x - s.x) <= tolerance + attackerRadius(a));
 }
+
+// ------------------------------------------------------------------ Team score
+
+export const ATTACKER_KINDS: readonly AttackerKind[] = ["drone", "grunt", "brute", "boss"];
+export type BattleGrade = "S" | "A" | "B" | "C" | "D";
+
+/** Lowest score for each grade, best first. */
+export const GRADE_FLOORS: readonly [BattleGrade, number][] = [
+  ["S", 90],
+  ["A", 75],
+  ["B", 60],
+  ["C", 40],
+  ["D", 0],
+];
+
+export interface BattleScore {
+  /** 0–100: 60 % topics saved, 40 % enemy health destroyed. */
+  score: number;
+  grade: BattleGrade;
+  topicsSaved: number;
+  topicsFought: number;
+  /** Whole percent of the health of every enemy that showed up. */
+  enemyHpPct: number;
+  /** Enemies destroyed, and enemies that showed up, by kind. */
+  destroyed: Record<AttackerKind, number>;
+  faced: Record<AttackerKind, number>;
+}
+
+export function battleGrade(score: number, flawless: boolean): BattleGrade {
+  const grade = GRADE_FLOORS.find(([, floor]) => score >= floor)?.[0] ?? "D";
+  // Not losing a single topic is always worth at least an A.
+  return flawless && (grade === "B" || grade === "C" || grade === "D") ? "A" : grade;
+}
+
+/**
+ * The team's score for a battle, or null when no lane came under attack. Only enemies that had
+ * appeared by `now` count, so ending early doesn't count enemies nobody got to see. Partial damage
+ * counts towards enemy health destroyed. Only a battle fought to the end (`completed`) can earn
+ * the flawless A: otherwise ending it before anything strikes would.
+ */
+export function scoreBattle(p: {
+  topicsSaved: number;
+  topicsFought: number;
+  completed: boolean;
+  script: AttackerScript[];
+  attackerHp: Record<number, number>;
+  dead: ReadonlySet<number>;
+  now: number;
+}): BattleScore | null {
+  if (p.topicsFought === 0) return null;
+  const zero = (): Record<AttackerKind, number> => ({ drone: 0, grunt: 0, brute: 0, boss: 0 });
+  const destroyed = zero();
+  const faced = zero();
+  let total = 0;
+  let dealt = 0;
+  for (const a of p.script) {
+    const entered = a.waypoints[0]?.at ?? Infinity;
+    if (entered > p.now) continue;
+    faced[a.kind] += 1;
+    total += a.hp;
+    if (p.dead.has(a.id)) {
+      destroyed[a.kind] += 1;
+      dealt += a.hp;
+    } else {
+      dealt += a.hp - Math.max(0, Math.min(a.hp, p.attackerHp[a.id] ?? a.hp));
+    }
+  }
+  const saved = p.topicsSaved / p.topicsFought;
+  const health = total > 0 ? dealt / total : 0;
+  const score = Math.round(100 * (0.6 * saved + 0.4 * health));
+  return {
+    score,
+    grade: battleGrade(score, p.completed && p.topicsSaved === p.topicsFought),
+    topicsSaved: p.topicsSaved,
+    topicsFought: p.topicsFought,
+    enemyHpPct: Math.round(100 * health),
+    destroyed,
+    faced,
+  };
+}

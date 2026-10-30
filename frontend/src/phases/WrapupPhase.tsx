@@ -50,6 +50,12 @@ export function WrapupPhase() {
         }
       >
         {people} people · {room.cards.length} cards · {topics.length} topics · {room.actions.length} actions
+        {room.battle?.score && (
+          <>
+            {" "}
+            · Battle grade {room.battle.score.grade} ({room.battle.score.score}/100)
+          </>
+        )}
       </PhaseIntro>
       <div className="wrapup-grid">
         <section className="panel">
