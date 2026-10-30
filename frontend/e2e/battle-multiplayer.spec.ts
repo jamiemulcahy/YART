@@ -65,10 +65,8 @@ test("ships are chosen on joining and everyone flies in the same battle", async 
   await alice.waitForTimeout(800);
   const up = (await debug(alice))!.me.y;
   await alice.keyboard.up("w");
-  await alice.waitForTimeout(1200);
-  const back = (await debug(alice))!.me.y;
   expect(up).toBeLessThan(start - 100);
-  expect(back).toBeGreaterThan(up + 100);
+  await expect.poll(async () => (await debug(alice))!.me.y).toBeGreaterThan(up + 100);
 
   // Music is playing during the battle.
   expect(await sounds(alice)).toContain("music:start");
