@@ -8,11 +8,13 @@ import {
   SAFE_ZONE_Y,
   TILE_BOTTOM,
   attackerPos,
+  battleGrade,
   currentLevel,
   laneOffset,
   layoutTiles,
   planBattle,
   plausibleHit,
+  scoreBattle,
   seededRandom,
   waveFor,
 } from "./battle";
@@ -199,5 +201,93 @@ describe("script size", () => {
       expect(p.script.filter((a) => a.level === l && a.kind !== "boss").length).toBeLessThanOrEqual(115);
     }
     expect(JSON.stringify(p).length).toBeLessThan(400_000);
+  });
+});
+
+describe("scoreBattle", () => {
+  const enemy = (id: number, kind: AttackerScript["kind"], hp: number, entersAt = 0): AttackerScript => ({
+    id,
+    level: 0,
+    kind,
+    hp,
+    waypoints: [{ x: 0, y: 0, at: entersAt }],
+    strikes: [],
+  });
+  const script = [enemy(0, "drone", 2), enemy(1, "grunt", 5), enemy(2, "brute", 16), enemy(3, "boss", 77)];
+
+  it("weights topics saved 60 % and enemy health destroyed 40 %", () => {
+    // Half the topics saved; drone and grunt dead, brute half dead: (2 + 5 + 8) / 100 health.
+    const s = scoreBattle({
+      topicsSaved: 2,
+      topicsFought: 4,
+      completed: true,
+      script,
+      attackerHp: { 2: 8 },
+      dead: new Set([0, 1]),
+      now: 1000,
+    });
+    expect(s).toMatchObject({ score: 36, grade: "D", enemyHpPct: 15, topicsSaved: 2, topicsFought: 4 });
+    expect(s?.destroyed).toEqual({ drone: 1, grunt: 1, brute: 0, boss: 0 });
+    expect(s?.faced).toEqual({ drone: 1, grunt: 1, brute: 1, boss: 1 });
+  });
+
+  it("only counts enemies that had shown up, so ending early isn't punished", () => {
+    const late = [...script, enemy(4, "brute", 1000, 5000)];
+    const s = scoreBattle({
+      topicsSaved: 1,
+      topicsFought: 1,
+      completed: false,
+      script: late,
+      attackerHp: {},
+      dead: new Set([0, 1, 2, 3]),
+      now: 1000,
+    });
+    expect(s).toMatchObject({ score: 100, grade: "S", enemyHpPct: 100 });
+    expect(s?.faced.brute).toBe(1);
+  });
+
+  it("only gives the flawless A to a battle fought to the end", () => {
+    const idle = {
+      topicsSaved: 2,
+      topicsFought: 2,
+      script,
+      attackerHp: {},
+      dead: new Set<number>(),
+      now: 1000,
+    };
+    expect(scoreBattle({ ...idle, completed: false })).toMatchObject({ score: 60, grade: "B" });
+    expect(scoreBattle({ ...idle, completed: true })).toMatchObject({ score: 60, grade: "A" });
+  });
+
+  it("is null when no lane came under attack", () => {
+    expect(
+      scoreBattle({
+        topicsSaved: 0,
+        topicsFought: 0,
+        completed: true,
+        script,
+        attackerHp: {},
+        dead: new Set(),
+        now: 1000,
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    [100, false, "S"],
+    [90, false, "S"],
+    [89, false, "A"],
+    [75, false, "A"],
+    [74, false, "B"],
+    [60, false, "B"],
+    [59, false, "C"],
+    [40, false, "C"],
+    [39, false, "D"],
+    [0, false, "D"],
+    // Losing nothing is always worth an A, but an S still has to be earned.
+    [60, true, "A"],
+    [92, true, "S"],
+  ] as const)("score %i (flawless: %s) is grade %s", (score, flawless, grade) => {
+    expect(battleGrade(score, flawless)).toBe(grade);
   });
 });

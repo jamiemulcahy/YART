@@ -1527,6 +1527,63 @@ textarea {
 .leaderboard {
   list-style: decimal inside;
 }
+.score-headline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+.grade {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius);
+  border: 2px solid currentColor;
+  font-family: var(--display);
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+.grade-s {
+  color: var(--warn);
+}
+.grade-a {
+  color: var(--good);
+}
+.grade-b {
+  color: var(--accent);
+}
+.grade-c {
+  color: var(--accent-2);
+}
+.grade-d {
+  color: var(--bad);
+}
+.score-number strong {
+  font-family: var(--display);
+  font-size: 1.8rem;
+}
+.score-breakdown {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.score-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.boss-badge {
+  display: inline-block;
+  margin: 12px 0 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--warn);
+  font-weight: 600;
+}
 
 /* Discuss */
 .discuss-layout {

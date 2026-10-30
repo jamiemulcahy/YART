@@ -1,4 +1,4 @@
-import type { ShipKind } from "./battle";
+import type { BattleScore, ShipKind } from "./battle";
 
 export const PHASES = ["setup", "write", "group", "vote", "discuss", "battle", "wrapup"] as const;
 export type Phase = (typeof PHASES)[number];
@@ -120,6 +120,8 @@ export interface BattleResults {
   fates: Record<string, TopicFate>;
   /** Null when the owner hides individual stats. */
   stats: BattleStat[] | null;
+  /** The team's score; absent when no lane came under attack (and on rooms from before scoring). */
+  score?: BattleScore;
 }
 
 export interface RoomSnapshot {

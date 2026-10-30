@@ -26,6 +26,7 @@ import {
   plausibleHit,
   randomName,
   rankTopics,
+  scoreBattle,
   seededRandom,
   topicMaxHp,
 } from "@yart/shared";
@@ -1320,7 +1321,17 @@ export class RoomDO extends DurableObject<Env> {
           })
           .sort((a, b) => b.bossKills - a.bossKills || b.kills - a.kills)
       : null;
-    const results: BattleResults = { fates, stats };
+    const fateList = Object.values(fates);
+    const score = scoreBattle({
+      topicsSaved: fateList.filter((f) => f === "survived").length,
+      topicsFought: fateList.length,
+      completed: now >= run.live.endsAt || run.dead.size === run.live.script.length,
+      script: run.live.script,
+      attackerHp: run.live.attackerHp,
+      dead: run.dead,
+      now,
+    });
+    const results: BattleResults = { fates, stats, ...(score ? { score } : {}) };
     data.meta.battle = results;
     this.saveMeta();
     if (announce) this.broadcast({ t: "battle.end", results });

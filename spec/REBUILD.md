@@ -170,6 +170,7 @@ Drones (2 HP, fodder), grunts (5 HP), brutes (16 HP, heavy hitters, from lane 2)
 
 - Topics whose lane came under attack are marked **survived** or **fell**; the owner can end early, replay, or move on.
 - Leaderboard of kills / boss kills (owner can hide).
+- **Team score** (always shown, never per person): `0–100 = 60 % × topics saved + 40 % × enemy health destroyed`, worked out by the server and saved with the results. Only enemies that had appeared count, and partial damage counts. Grades: **S** ≥ 90, **A** ≥ 75, **B** ≥ 60, **C** ≥ 40, **D** below; a battle fought to the end without losing a topic is at least an A (ending early never earns that). Breakdown: topics saved, enemy health %, enemies destroyed by kind, and a boss-slayer badge. No score when no lane was fought. The grade also appears in Wrap-up and the export.
 
 ### 10.6 Presentation
 
