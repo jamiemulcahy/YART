@@ -59,12 +59,18 @@ export function WrapupPhase() {
         <section className="panel">
           <h3>Top topics</h3>
           <ol className="top-topics">
-            {ranked.map((t) => (
-              <li key={t.id}>
-                <span>{t.title}</span>
-                <span className="muted"> · {room.shields.totals?.[t.id] ?? 0} votes</span>
-              </li>
-            ))}
+            {ranked.map((t) => {
+              const votes = room.shields.totals?.[t.id] ?? 0;
+              return (
+                <li key={t.id}>
+                  <span>{t.title}</span>
+                  <span className="muted">
+                    {" "}
+                    · {votes} {votes === 1 ? "vote" : "votes"}
+                  </span>
+                </li>
+              );
+            })}
           </ol>
         </section>
         <section className="panel export-preview">

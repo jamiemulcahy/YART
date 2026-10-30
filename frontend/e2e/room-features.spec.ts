@@ -240,7 +240,7 @@ test("battle launches for everyone and reports results", async ({ page: owner, b
   await expect(alice.getByText(/topics? survived/)).toBeVisible();
   // The battle doesn't change the results.
   await nextPhase(owner, "Wrap-up");
-  await expect(alice.locator(".top-topics li").first()).toContainText("Protect me");
+  await expect(alice.locator(".top-topics li").first()).toHaveText("Protect me · 1 vote");
 });
 
 test("owner can delete the room", async ({ page: owner, browser }) => {
