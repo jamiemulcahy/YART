@@ -48,6 +48,12 @@ Use these tools to verify changes in the browser:
 
 **Do NOT consider a task complete until it has been visually verified AND has test coverage.**
 
+### Test it yourself, don't lean on the suite
+
+Passing E2E tests are not enough. Before calling a change done, drive the real app in a browser yourself (Playwright MCP, or a throwaway `playwright` script in a scratch directory if MCP isn't available) and try everything you touched **and the edge cases around it**: other roles (owner, participant, viewer), refresh/reconnect, ending or leaving things early, empty and extreme inputs, mobile width. Look at screenshots, not just assertions. Fix what you find, then cover the user-visible behaviour in E2E.
+
+Test priorities: **E2E first** for everything a user can see. Add unit tests only for logic that is both important and hard to reach from an E2E test (e.g. battle maths, scoring thresholds, text cleaning).
+
 ## CRITICAL: Git Workflow
 
 **NEVER commit directly to main. Always use feature branches.**
