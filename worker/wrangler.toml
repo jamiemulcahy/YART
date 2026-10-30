@@ -4,7 +4,7 @@ compatibility_date = "2025-09-01"
 
 [vars]
 # Origins allowed to call the API cross-origin. The dev frontend proxies /api, so it doesn't need an entry.
-ALLOWED_ORIGINS = "http://localhost:5173"
+ALLOWED_ORIGINS = "http://localhost:5173,https://yetanotherretrotool.com,http://yetanotherretrotool.com,https://www.yetanotherretrotool.com"
 
 [dev]
 port = 8787
